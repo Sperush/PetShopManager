@@ -1,0 +1,27 @@
+﻿[
+  {
+    "id": 1,
+    "name": "Tắm gội thơm tho",
+    "price": 150000
+  },
+  {
+    "id": 2,
+    "name": "Cắt tỉa lông VIP",
+    "price": 300000
+  },
+  {
+    "id": 3,
+    "name": "Combo Spa toàn diện",
+    "price": 500000
+  },
+  {
+    "id": 4,
+    "name": "Cạo vôi răng",
+    "price": 200000
+  },
+  {
+    "id": 5,
+    "name": "Nhuộm lông nghệ thuật",
+    "price": 800000
+  }
+]

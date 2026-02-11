@@ -1,0 +1,20 @@
+﻿[
+  {
+    "id": 1,
+    "name": "Nguyễn Văn A",
+    "phone": "0988111222",
+    "address": "123 Cầu Giấy, Hà Nội"
+  },
+  {
+    "id": 2,
+    "name": "Trần Thị B",
+    "phone": "0912333444",
+    "address": "456 Đống Đa, Hà Nội"
+  },
+  {
+    "id": 3,
+    "name": "Lê Hoàng C",
+    "phone": "0977888999",
+    "address": "789 Ba Đình, Hà Nội"
+  }
+]
