@@ -1,0 +1,187 @@
+﻿@page "/products"
+@using PetShop_Server.Models
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<h3 class="text-primary mb-4"><i class="bi bi-box-seam-fill me-2"></i> KHO HÀNG & SẢN PHẨM</h3>
+
+<div class="card p-3 mb-4 shadow-sm bg-light">
+    <div class="row g-2 align-items-center">
+        <div class="col-md-3">
+            <input @bind="currentPrd.Name" class="form-control" placeholder="Tên sản phẩm..." />
+        </div>
+        <div class="col-md-3">
+            <input @bind="currentPrd.Category" class="form-control" placeholder="Loại (VD: Thức ăn)" />
+        </div>
+        <div class="col-md-2">
+            <div class="input-group">
+                <span class="input-group-text fw-bold text-secondary">Giá</span>
+                <input @bind="currentPrd.Price" class="form-control" type="number" placeholder="0" />
+                <span class="input-group-text">đ</span>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="input-group">
+                <span class="input-group-text fw-bold text-secondary">SL</span>
+                <input @bind="currentPrd.Stock" class="form-control" type="number" placeholder="0" />
+            </div>
+        </div>
+        <div class="col-md-2">
+            @if (isEditing)
+            {
+                <div class="d-flex gap-1">
+                    <button class="btn btn-success w-100" @onclick="SaveProduct" title="Lưu"><i class="bi bi-check-lg"></i></button>
+                    <button class="btn btn-secondary w-100" @onclick="CancelEdit" title="Hủy"><i class="bi bi-x-lg"></i></button>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-primary w-100" @onclick="SaveProduct" title="Thêm mới"><i class="bi bi-plus-lg"></i></button>
+            }
+        </div>
+    </div>
+</div>
+
+<table class="table table-bordered table-striped table-hover align-middle shadow-sm">
+    <thead class="table-primary text-center">
+        <tr>
+            <th>ID</th>
+            <th class="text-start">Tên Sản Phẩm</th>
+            <th>Danh Mục</th>
+            <th>Giá Bán</th>
+            <th>Tồn Kho</th>
+            <th>Thao Tác</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var p in products)
+        {
+            <tr>
+                <td class="text-center fw-bold">@p.Id</td>
+                <td>@p.Name</td>
+                <td class="text-center"><span class="badge bg-secondary">@p.Category</span></td>
+                <td class="text-end fw-bold text-primary">@p.Price.ToString("#,##0") đ</td>
+                <td class="text-center" style="width: 180px;">
+                    <div class="btn-group btn-group-sm">
+                        @* Nút giảm số lượng *@
+                        <button class="btn btn-outline-danger" @onclick="() => UpdateStock(p, -1)">-</button>
+
+                        <button class="btn btn-light border px-3 disabled text-dark fw-bold">@(p.Stock ?? 0)</button>
+
+                        @* Nút tăng số lượng *@
+                        <button class="btn btn-outline-success" @onclick="() => UpdateStock(p, 1)">+</button>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning me-2" @onclick="() => EditProduct(p)"><i class="bi bi-pencil-square"></i></button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(p)"><i class="bi bi-trash3-fill"></i></button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<Product> products = new List<Product>();
+    private Product currentPrd = new Product();
+    private bool isEditing = false;
+
+    // URL API (Port 7225)
+    private string apiUrl = "https://localhost:7225/api/products";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            products = await Http.GetFromJsonAsync<List<Product>>(apiUrl) ?? new List<Product>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi load data: {ex.Message}");
+            products = new List<Product>();
+        }
+    }
+
+    private async Task SaveProduct()
+    {
+        if (!string.IsNullOrEmpty(currentPrd.Name))
+        {
+            if (isEditing)
+            {
+                // API SỬA (PUT)
+                await Http.PutAsJsonAsync($"{apiUrl}/{currentPrd.Id}", currentPrd);
+                isEditing = false;
+            }
+            else
+            {
+                // API THÊM (POST)
+                // Đảm bảo Stock không null khi gửi lên
+                if (currentPrd.Stock == null) currentPrd.Stock = 0;
+                await Http.PostAsJsonAsync(apiUrl, currentPrd);
+            }
+
+            // Reset và tải lại
+            currentPrd = new Product();
+            await LoadData();
+        }
+    }
+
+    private void EditProduct(Product p)
+    {
+        currentPrd = new Product
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Category = p.Category,
+                Price = p.Price,
+                Stock = p.Stock
+            };
+        isEditing = true;
+    }
+
+    private void CancelEdit()
+    {
+        currentPrd = new Product();
+        isEditing = false;
+    }
+
+    // Hàm cập nhật kho nhanh (khi ấn nút + -)
+    private async Task UpdateStock(Product p, int change)
+    {
+        int currentStock = p.Stock ?? 0;
+        int newStock = currentStock + change;
+
+        if (newStock < 0) return; // Không cho phép số lượng âm
+
+        // Cập nhật giá trị mới vào object
+        p.Stock = newStock;
+
+        // Gọi API PUT để lưu ngay lập tức
+        try
+        {
+            await Http.PutAsJsonAsync($"{apiUrl}/{p.Id}", p);
+            // Không cần LoadData() ở đây để tránh giật màn hình, vì UI đã tự cập nhật số rồi
+        }
+        catch
+        {
+            // Nếu lỗi thì hoàn tác lại số cũ (tránh lệch data với server)
+            p.Stock = currentStock;
+            Console.WriteLine("Lỗi cập nhật kho");
+        }
+    }
+
+    private async Task DeleteProduct(Product p)
+    {
+        bool confirm = await Task.FromResult(true);
+        if (confirm)
+        {
+            await Http.DeleteAsync($"{apiUrl}/{p.Id}");
+            await LoadData();
+        }
+    }
+}

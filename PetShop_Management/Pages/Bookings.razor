@@ -1,0 +1,366 @@
+﻿@page "/booking"
+@using PetShop_Server.DTOs
+@using PetShop_Server.Models
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<PageTitle>Đặt Lịch Dịch Vụ</PageTitle>
+
+<div class="container mt-4">
+    <h3 class="text-primary mb-4 text-center">
+        <i class="bi bi-calendar-check me-2"></i> ĐẶT LỊCH CHĂM SÓC
+    </h3>
+
+    @* Hiển thị thông báo thành công *@
+    @if (showSuccessMessage)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="bi bi-check-circle-fill me-2"></i> Đặt lịch thành công!
+            <button type="button" class="btn-close" @onclick="() => showSuccessMessage = false"></button>
+        </div>
+    }
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">📝 Thông Tin Đặt Lịch</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small">Chủ Sở Hữu</label>
+                    @if (currentCustomer.Id == -1) // Chưa chọn ai
+                    {
+                        <div class="position-relative">
+                            <div class="input-group">
+                                <input class="form-control"
+                                placeholder="Nhập ID Khách..."
+                                @bind="ownerSearchKeyword"
+                                @bind:event="oninput"
+                                @onkeyup="SearchOwner" />
+                            </div>
+
+                            @if (suggestedCustomers.Any())
+                            {
+                                <div class="list-group position-absolute w-100 shadow" style="z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                    @foreach (var c in suggestedCustomers)
+                                    {
+                                        <button type="button" class="list-group-item list-group-item-action"
+                                        @onclick="() => SelectOwner(c)">
+                                            <div class="d-flex justify-content-between">
+                                                <strong>ID: @c.Id - @c.Name</strong>
+                                                <small class="text-muted">@c.Phone</small>
+                                            </div>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(ownerSearchKeyword) && ownerSearchKeyword.Length > 1)
+                            {
+                                <div class="text-danger small mt-1">Không tìm thấy ai...</div>
+                            }
+                        </div>
+                    }
+                    else // Đã chọn
+                    {
+                        <div class="input-group">
+                            <span class="form-control bg-light text-primary fw-bold">
+                                <i class="bi bi-person-check-fill"></i> @selectedOwnerName
+                            </span>
+                            <button class="btn btn-outline-danger" type="button" @onclick="RemoveOwner">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Thú Cưng</label>
+                    <select @bind="request.PetId" class="form-select" disabled="@(filteredPets.Count == 0)">
+                        <option value="0">-- Chọn thú cưng --</option>
+                        @foreach (var p in filteredPets)
+                        {
+                            // Logic hiển thị loại thú cưng
+                            var typeName = p.PetTypeId == 1 ? "Chó" : (p.PetTypeId == 2 ? "Mèo" : "Khác");
+                            <option value="@p.Id">@p.Name (@typeName)</option>
+                        }
+                    </select>
+                    @if (request.CustomerId > 0 && filteredPets.Count == 0)
+                    {
+                        <small class="text-danger">Khách này chưa có thú cưng nào.</small>
+                    }
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-bold">Dịch Vụ (Có thể chọn nhiều)</label>
+                    <div class="card p-3 bg-light">
+                        <div class="row">
+                            @foreach (var s in services)
+                            {
+                                <div class="col-md-4 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                        id="srv_@s.Id"
+                                        @onchange="@(e => ToggleService(s.Id, e.Value))">
+                                        <label class="form-check-label" for="srv_@s.Id">
+                                            @s.Name <span class="text-success fw-bold">(@s.Price.ToString("#,##0") đ)</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Ngày Hẹn</label>
+                    <input type="datetime-local" @bind="request.BookingDate" class="form-control" />
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button class="btn btn-success w-100 py-2" @onclick="SaveBooking" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span> <span>Đang xử lý...</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-plus-circle-fill me-2"></i> XÁC NHẬN ĐẶT LỊCH</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Thanh tìm kiếm *@
+    <div class="input-group mb-3 w-50">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input class="form-control" placeholder="Nhập tên khách hoặc SĐT..." @bind="searchText" @bind:event="oninput" />
+    </div>
+
+    @* Bảng danh sách *@
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0">📅 Danh Sách Đã Đặt</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover align-middle table-bordered">
+                <thead class="table-light text-center">
+                    <tr>
+                        <th>Mã</th>
+                        <th>Khách Hàng</th>
+                        <th>Thú Cưng</th>
+                        <th>Ngày Hẹn</th>
+                        <th>Trạng Thái</th>
+                        <th>Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in FilteredBooking)
+                    {
+                        <tr>
+                            <td class="text-center">@item.Id</td>
+                            <td>
+                                <div class="fw-bold text-dark">
+                                    <i class="bi bi-person-circle text-secondary me-1"></i> @(item.Customer?.Name ?? "Loading...")
+                                </div>
+                                <div class="small text-muted ms-4">
+                                    <i class="bi bi-phone me-1"></i> @(item.Customer?.Phone)
+                                </div>
+                            </td>
+                            <td>@(item.Pet?.Name ?? "Loading...")</td>
+                            <td class="text-center">@item.BookingDate?.ToString("dd/MM/yyyy HH:mm")</td>
+
+                            <td class="text-center">
+                                @if (item.Status == "Đã xong")
+                                {
+                                    <span class="badge bg-success">Đã xong</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">Chờ xử lý</span>
+                                }
+                            </td>
+
+                            <td class="text-center">
+                                <a href="/booking-details/@item.Id" class="btn btn-sm btn-info text-white me-2" title="Xem chi tiết">
+                                    <i class="bi bi-eye-fill"></i>
+                                </a>
+
+                                @if (item.Status != "Đã xong")
+                                {
+                                    <button class="btn btn-sm btn-outline-success me-2" @onclick="() => CompleteBooking(item)" title="Hoàn thành">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                }
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBooking(item)" title="Xóa">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Customer> customers = new List<Customer>();
+    private List<Service> services = new List<Service>();
+
+    // QUAN TRỌNG: Load toàn bộ Pet để lọc, tránh việc customer.Pets bị null
+    private List<Pet> allPets = new List<Pet>();
+    private List<Pet> filteredPets = new List<Pet>();
+    private List<Booking> bookings = new List<Booking>();
+
+    private string searchText = "";
+    private bool isSubmitting = false;
+    private bool showSuccessMessage = false;
+    private string ownerSearchKeyword = "";
+    private string selectedOwnerName = "";
+    private List<Customer> suggestedCustomers = new List<Customer>();
+    private BookingRequest request = new BookingRequest { BookingDate = DateTime.Now };
+
+    private Customer currentCustomer = new Customer { Id = -1 }; // Khởi tạo rỗng
+    // Cổng Port 7225
+    private string baseUrl = "https://localhost:7225/api";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            customers = await Http.GetFromJsonAsync<List<Customer>>($"{baseUrl}/customers") ?? new List<Customer>();
+            services = await Http.GetFromJsonAsync<List<Service>>($"{baseUrl}/services") ?? new List<Service>();
+            bookings = await Http.GetFromJsonAsync<List<Booking>>($"{baseUrl}/bookings") ?? new List<Booking>();
+
+            // Tải thêm danh sách thú cưng để phục vụ việc chọn
+            allPets = await Http.GetFromJsonAsync<List<Pet>>($"{baseUrl}/pets") ?? new List<Pet>();
+        }
+        catch (Exception ex) { Console.WriteLine($"Lỗi load data: {ex.Message}"); }
+    }
+
+    private IEnumerable<Booking> FilteredBooking => bookings
+        .Where(p => string.IsNullOrEmpty(searchText) ||
+                   (p.Customer != null && (p.Customer.Name.ToLower().Contains(searchText.ToLower()) || p.Customer.Phone.Contains(searchText))))
+        .OrderByDescending(b => b.Status == "Chờ xử lý")
+        .ThenByDescending(b => b.BookingDate);
+
+    private void SearchOwner()
+    {
+        if (string.IsNullOrWhiteSpace(ownerSearchKeyword))
+        {
+            suggestedCustomers.Clear();
+            return;
+        }
+
+        // Lọc trong danh sách customers đã load
+        // Chuyển về chữ thường để tìm không phân biệt hoa thường
+        var key = ownerSearchKeyword.ToLower();
+
+        suggestedCustomers = customers
+            .Where(c => c.Id.ToString().Contains(key))
+            .Take(5) // Chỉ lấy 5 người để hiển thị cho gọn
+            .ToList();
+    }
+
+    // 2. Hàm chọn chủ từ danh sách gợi ý
+    private void SelectOwner(Customer c)
+    {
+        currentCustomer.Id = c.Id;
+        selectedOwnerName = $"{c.Name} ({c.Phone})";
+
+        // Dọn dẹp ô tìm kiếm
+        suggestedCustomers.Clear();
+        ownerSearchKeyword = "";
+        request.CustomerId = currentCustomer.Id;
+        if (currentCustomer.Id > 0)
+        {
+            // SỬA: Lọc từ danh sách allPets đã tải về, đảm bảo luôn có dữ liệu
+            filteredPets = allPets.Where(p => p.CustomerId == currentCustomer.Id).ToList();
+        }
+        else
+        {
+            filteredPets = new List<Pet>();
+        }
+        request.PetId = 0; // Reset chọn pet
+    }
+
+    // 3. Hàm bỏ chọn
+    private void RemoveOwner()
+    {
+        filteredPets.Clear();
+        request = new BookingRequest { BookingDate = DateTime.Now }; // Reset form
+        currentCustomer.Id = -1;
+        selectedOwnerName = "";
+    }
+    private void ToggleService(int serviceId, object? checkedValue)
+    {
+        bool isChecked = (bool)(checkedValue ?? false);
+        if (isChecked)
+        {
+            if (!request.ServiceIds.Contains(serviceId))
+                request.ServiceIds.Add(serviceId);
+        }
+        else
+        {
+            if (request.ServiceIds.Contains(serviceId))
+                request.ServiceIds.Remove(serviceId);
+        }
+    }
+
+    private async Task SaveBooking()
+    {
+        if (request.CustomerId == 0 || request.PetId == 0 || request.ServiceIds.Count == 0)
+        {
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"{baseUrl}/bookings", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                RemoveOwner();
+                showSuccessMessage = true;
+                await LoadData(); // Reload lại bảng
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi lưu: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task CompleteBooking(Booking item)
+    {
+        item.Status = "Đã xong";
+        // Vì item chứa object con (Customer, Pet) có thể gây lỗi vòng lặp khi gửi lại Server
+        // Nên ta tạo 1 object sạch chỉ chứa thông tin cần thiết nếu cần, hoặc Server phải IgnoreCycles
+        await Http.PutAsJsonAsync($"{baseUrl}/bookings/{item.Id}", item);
+        await LoadData();
+    }
+
+    private async Task DeleteBooking(Booking item)
+    {
+        bool confirm = await Task.FromResult(true);
+        if (confirm)
+        {
+            var response = await Http.DeleteAsync($"{baseUrl}/bookings/{item.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadData();
+            }
+        }
+    }
+}

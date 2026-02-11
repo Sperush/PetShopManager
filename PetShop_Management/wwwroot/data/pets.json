@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "customerId": 1,
+    "name": "Mimi",
+    "type": "Mèo",
+    "weight": 3.5
+  },
+  {
+    "id": 2,
+    "customerId": 1,
+    "name": "Lu",
+    "type": "Chó",
+    "weight": 8.0
+  },
+  {
+    "id": 3,
+    "customerId": 2,
+    "name": "Kiki",
+    "type": "Mèo",
+    "weight": 4.2
+  },
+  {
+    "id": 4,
+    "customerId": 3,
+    "name": "Bông",
+    "type": "Chó",
+    "weight": 6.5
+  }
+]

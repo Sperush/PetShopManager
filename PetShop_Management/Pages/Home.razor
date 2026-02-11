@@ -1,0 +1,217 @@
+﻿@page "/"
+@using PetShop_Server.Models
+@inject HttpClient Http
+
+<PageTitle>Dashboard - Thống kê</PageTitle>
+
+<div class="container-fluid">
+    <h3 class="text-primary mb-4 fw-bold">
+        <i class="bi bi-speedometer2 me-2"></i> TỔNG QUAN TÌNH HÌNH
+    </h3>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="card-title opacity-75">TỔNG DOANH THU</h6>
+                    <h3 class="fw-bold">@TotalRevenue.ToString("#,##0") đ</h3>
+                    <small><i class="bi bi-graph-up-arrow"></i> Tạm tính từ lịch sử</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="card-title opacity-75">LỊCH HẸN CHỜ XỬ LÝ</h6>
+                    <h3 class="fw-bold">@PendingCount</h3>
+                    <small>Cần xác nhận ngay</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="card-title opacity-75">KHÁCH HÀNG</h6>
+                    <h3 class="fw-bold">@CustomerCount</h3>
+                    <small><i class="bi bi-people-fill"></i> Tổng số khách</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-danger text-white shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="card-title opacity-75">SẢN PHẨM SẮP HẾT</h6>
+                    <h3 class="fw-bold">@LowStockCount</h3>
+                    <small>Cần nhập thêm hàng</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold">
+                    <i class="bi bi-pie-chart-fill me-2 text-primary"></i> Tỉ lệ Thú Cưng
+                </div>
+                <div class="card-body">
+                    <h5 class="text-center mb-4">Tổng cộng: <span class="fw-bold text-primary">@pets.Count</span> bé</h5>
+
+                    @if (TypeStats.Any())
+                    {
+                        @foreach (var stat in TypeStats)
+                        {
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>
+                                    <i class="bi bi-tag-fill me-1" style="color: var(--bs-@stat.ColorClass)"></i>
+                                    @stat.Name (@stat.Count)
+                                </span>
+                                <span>@stat.Percent.ToString("0.0")%</span>
+                            </div>
+                            <div class="progress mb-3" style="height: 20px;">
+                                <div class="progress-bar bg-@stat.ColorClass"
+                                     role="progressbar"
+                                     style="width: @((int)stat.Percent)%">
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-center text-muted">Chưa có dữ liệu thống kê.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100 border-danger">
+                <div class="card-header bg-danger text-white fw-bold">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i> Cảnh Báo Nhập Kho (Dưới 10)
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Sản phẩm</th>
+                                <th class="text-center">Tồn</th>
+                                <th class="text-end">Giá bán</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in LowStockProducts)
+                            {
+                                <tr>
+                                    <td>@p.Name</td>
+                                    <td class="text-center fw-bold text-danger">@p.Stock</td>
+                                    <td class="text-end">@p.Price.ToString("#,##0")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Booking> bookings = new List<Booking>();
+    private List<Service> services = new List<Service>();
+    private List<Product> products = new List<Product>();
+    private List<Customer> customers = new List<Customer>();
+    private List<Pet> pets = new List<Pet>();
+    private List<BookingDetail> bookingDetails = new List<BookingDetail>(); // Cần thêm cái này
+
+    private decimal TotalRevenue = 0; // Sửa thành decimal
+    private int PendingCount = 0;
+    private int CustomerCount = 0;
+    private int LowStockCount = 0;
+    private int DogCount = 0, CatCount = 0;
+    private double DogPercent = 0, CatPercent = 0, OtherPercent = 0;
+    private List<Product> LowStockProducts = new List<Product>();
+    private List<PetType> petTypes = new List<PetType>(); // Danh sách loại lấy từ API
+    private List<TypeStat> TypeStats = new List<TypeStat>(); // Danh sách kết quả tính toán để hiện lên màn hình
+
+    // Class phụ để lưu thống kê (định nghĩa ngay trong @code hoặc file riêng đều được)
+    public class TypeStat
+    {
+        public string Name { get; set; } = "";
+        public int Count { get; set; }
+        public double Percent { get; set; }
+        public string ColorClass { get; set; } = "primary";
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Gọi API thay vì json
+            customers = await Http.GetFromJsonAsync<List<Customer>>("https://localhost:7225/api/customers") ?? new List<Customer>();
+            bookings = await Http.GetFromJsonAsync<List<Booking>>("https://localhost:7225/api/bookings") ?? new List<Booking>();
+            services = await Http.GetFromJsonAsync<List<Service>>("https://localhost:7225/api/services") ?? new List<Service>();
+            products = await Http.GetFromJsonAsync<List<Product>>("https://localhost:7225/api/products") ?? new List<Product>();
+            pets = await Http.GetFromJsonAsync<List<Pet>>("https://localhost:7225/api/pets") ?? new List<Pet>();
+            petTypes = await Http.GetFromJsonAsync<List<PetType>>("https://localhost:7225/api/pettypes") ?? new List<PetType>();
+            CalculateStats();
+        }
+        catch { }
+    }
+
+    private void CalculateStats()
+    {
+        CustomerCount = customers.Count;
+        PendingCount = bookings.Count(b => b.Status != "Đã xong");
+
+        TotalRevenue = bookings
+            .Where(b => b.Status == "Đã xong")
+            .Sum(b => b.TotalAmount ?? 0); // Ép về 0 nếu giá trị là null
+
+        if (pets.Count > 0)
+        {
+            // Sửa: Dùng PetTypeId (1=Chó, 2=Mèo)
+            DogCount = pets.Count(p => p.PetTypeId == 1);
+            CatCount = pets.Count(p => p.PetTypeId == 2);
+
+            int OtherCount = pets.Count - DogCount - CatCount;
+            DogPercent = (double)DogCount / pets.Count * 100;
+            CatPercent = (double)CatCount / pets.Count * 100;
+            OtherPercent = 100 - DogPercent - CatPercent;
+        }
+
+        // Sửa: Stock là nullable
+        LowStockProducts = products.Where(p => (p.Stock ?? 0) < 10).ToList();
+        LowStockCount = LowStockProducts.Count;
+        TypeStats.Clear();
+
+        if (pets.Count > 0 && petTypes.Count > 0)
+        {
+            // Danh sách màu để xoay vòng (cho đỡ nhàm chán)
+            string[] colors = { "primary", "success", "warning", "danger", "info", "secondary", "dark" };
+            int colorIndex = 0;
+
+            foreach (var type in petTypes)
+            {
+                // Đếm số lượng pet thuộc loại này
+                int count = pets.Count(p => p.PetTypeId == type.Id);
+
+                if (count > 0) // Chỉ hiện loại nào có dữ liệu
+                {
+                    double percent = (double)count / pets.Count * 100;
+
+                    TypeStats.Add(new TypeStat
+                        {
+                            Name = type.TypeName,
+                            Count = count,
+                            Percent = percent,
+                            ColorClass = colors[colorIndex % colors.Length] // Xoay vòng màu
+                        });
+
+                    colorIndex++; // Tăng index để loại sau dùng màu khác
+                }
+            }
+        }
+    }
+}

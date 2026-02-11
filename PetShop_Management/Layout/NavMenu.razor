@@ -1,0 +1,65 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Pet Shop Manager</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2 fs-4 me-3" aria-hidden="true"></i>
+                <span class="fw-bold">Tổng Quan (Home)</span>
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center" href="customers">
+                <i class="bi bi-people-fill fs-4 me-3" aria-hidden="true"></i>
+                <span class="fw-bold">Khách Hàng</span>
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center" href="pets">
+                <i class="bi bi-github fs-4 me-3" aria-hidden="true"></i>
+                <span class="fw-bold">Hồ Sơ Thú Cưng</span>
+            </NavLink>
+        </div>
+
+        @* --- MỚI THÊM: Link đến trang Loại Thú Cưng --- *@
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center" href="pet-types">
+                <i class="bi bi-tags-fill fs-4 me-3" aria-hidden="true"></i>
+                <span class="fw-bold">Loại Thú Cưng</span>
+            </NavLink>
+        </div>
+        @* --------------------------------------------- *@
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center" href="booking">
+                <i class="bi bi-calendar-check fs-4 me-3" aria-hidden="true"></i>
+                <span class="fw-bold">Đặt Lịch</span>
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center" href="products">
+                <i class="bi bi-box-seam-fill fs-4 me-3" aria-hidden="true"></i>
+                <span class="fw-bold">Kho Hàng</span>
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center" href="services">
+                <i class="bi bi-scissors fs-4 me-3" aria-hidden="true"></i>
+                <span class="fw-bold">Dịch Vụ & Giá</span>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+}

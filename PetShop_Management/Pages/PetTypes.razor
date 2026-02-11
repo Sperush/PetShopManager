@@ -1,0 +1,108 @@
+﻿@page "/pet-types"
+@using PetShop_Server.Models
+@inject HttpClient Http
+
+<h3 class="text-primary mb-4"><i class="bi bi-tags-fill me-2"></i> QUẢN LÝ LOẠI THÚ CƯNG</h3>
+
+<div class="card p-3 mb-4 shadow-sm bg-light">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-8">
+            <label class="form-label fw-bold small">Tên Loại</label>
+            <input @bind="currentType.TypeName" class="form-control" placeholder="VD: Hamster, Bò sát..." />
+        </div>
+        <div class="col-md-4">
+            @if (isEditing)
+            {
+                <div class="d-flex gap-1">
+                    <button class="btn btn-success w-100" @onclick="SaveType">Lưu</button>
+                    <button class="btn btn-secondary w-100" @onclick="CancelEdit">Hủy</button>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-primary w-100" @onclick="SaveType">Thêm Mới</button>
+            }
+        </div>
+    </div>
+</div>
+
+<table class="table table-bordered table-hover align-middle shadow-sm w-50">
+    <thead class="table-primary text-center">
+        <tr>
+            <th>ID</th>
+            <th>Tên Loại</th>
+            <th>Thao Tác</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in petTypes)
+        {
+            <tr>
+                <td class="text-center">@item.Id</td>
+                <td>@item.TypeName</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning me-2" @onclick="() => EditType(item)"><i class="bi bi-pencil-square"></i></button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteType(item)"><i class="bi bi-trash3-fill"></i></button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<PetType> petTypes = new List<PetType>();
+    private PetType currentType = new PetType();
+    private bool isEditing = false;
+    // Thay PORT
+    private string apiUrl = "https://localhost:7225/api/pettypes";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        petTypes = await Http.GetFromJsonAsync<List<PetType>>(apiUrl) ?? new List<PetType>();
+    }
+
+    private async Task SaveType()
+    {
+        if (!string.IsNullOrEmpty(currentType.TypeName))
+        {
+            if (isEditing)
+            {
+                await Http.PutAsJsonAsync($"{apiUrl}/{currentType.Id}", currentType);
+                isEditing = false;
+            }
+            else
+            {
+                await Http.PostAsJsonAsync(apiUrl, currentType);
+            }
+            currentType = new PetType();
+            await LoadData();
+        }
+    }
+
+    private void EditType(PetType t)
+    {
+        currentType = new PetType { Id = t.Id, TypeName = t.TypeName };
+        isEditing = true;
+    }
+
+    private void CancelEdit()
+    {
+        currentType = new PetType();
+        isEditing = false;
+    }
+
+    private async Task DeleteType(PetType t)
+    {
+        bool confirmed = await Task.FromResult(true); // Có thể thêm JS confirm
+        if (confirmed)
+        {
+            await Http.DeleteAsync($"{apiUrl}/{t.Id}");
+            await LoadData();
+        }
+    }
+}

@@ -1,0 +1,48 @@
+name: Deploy to GitHub Pages
+
+# Chạy khi có code mới đẩy lên nhánh master hoặc main
+on:
+  push:
+    branches: [ master, main ]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-to-github-pages:
+    # Sử dụng máy chủ Linux của Github
+    runs-on: ubuntu-latest
+    steps:
+    # 1. Lấy code về
+    - uses: actions/checkout@v3
+
+    # 2. Cài đặt .NET (Chọn phiên bản 6/7/8 tùy dự án của bạn)
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '7.0.x' # <--- SỬA SỐ NÀY nếu bạn dùng .NET 6 hoặc 8
+
+    # 3. Build code ra thư mục 'release'
+    - name: Publish .NET Project
+      run: dotnet publish -c Release -o release --nologo
+
+    # 4. Sửa đường dẫn base href (QUAN TRỌNG NHẤT)
+    # Thay 'TEN_REPO' bằng tên Repository của bạn trên Github
+    # Ví dụ: nếu link là github.com/TuanAnh/PetShop -> thay thành /PetShop/
+    - name: Change base-tag in index.html from / to /ProjectName/
+      run: sed -i 's/<base href="\/" \/>/<base href="\/PetShopManager\/" \/>/g' release/wwwroot/index.html
+    
+    # 5. Tạo file .nojekyll để Github không chặn các file _framework
+    - name: Add .nojekyll file
+      run: touch release/wwwroot/.nojekyll
+
+    # 6. Copy index.html thành 404.html để reload không bị lỗi
+    - name: copy index.html to 404.html
+      run: cp release/wwwroot/index.html release/wwwroot/404.html
+
+    # 7. Đẩy code đã build lên nhánh gh-pages
+    - name: Commit wwwroot to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        branch: gh-pages
+        folder: release/wwwroot

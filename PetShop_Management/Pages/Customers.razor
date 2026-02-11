@@ -1,0 +1,189 @@
+﻿@page "/customers"
+@using PetShop_Server.Models
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<h3 class="text-primary mb-4">
+    <i class="bi bi-people-fill me-2"></i> QUẢN LÝ KHÁCH HÀNG
+</h3>
+
+@* --- GIỮ NGUYÊN PHẦN GIAO DIỆN HTML CỦA BẠN Ở ĐÂY --- *@
+<div class="card p-3 mb-4 shadow-sm bg-light">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Họ và Tên</label>
+            <input @bind="currentCus.Name" class="form-control" placeholder="VD: Nguyễn Văn A" />
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Số Điện Thoại</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-telephone-fill"></i></span>
+                <input @bind="currentCus.Phone" class="form-control" placeholder="09xx..." />
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label fw-bold small">Địa Chỉ</label>
+            <input @bind="currentCus.Address" class="form-control" placeholder="VD: 123 Cầu Giấy..." />
+        </div>
+
+        <div class="col-md-2">
+            @if (isEditing)
+            {
+                <div class="d-flex gap-1">
+                    <button class="btn btn-success w-100" @onclick="SaveCustomer" title="Lưu">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button class="btn btn-secondary w-100" @onclick="CancelEdit" title="Hủy">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-primary w-100" @onclick="SaveCustomer">
+                    <i class="bi bi-person-plus-fill"></i> Thêm
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="input-group mb-3 w-50">
+    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+    <input class="form-control" placeholder="Tìm theo tên hoặc số điện thoại..."
+           @bind="searchText" @bind:event="oninput" />
+</div>
+
+<table class="table table-bordered table-hover align-middle shadow-sm">
+    <thead class="table-primary text-center">
+        <tr>
+            <th>ID</th>
+            <th>Họ và Tên</th>
+            <th>Số Điện Thoại</th>
+            <th>Địa Chỉ</th>
+            <th>Thao Tác</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var c in FilteredCustomers)
+        {
+            <tr>
+                <td class="text-center fw-bold text-secondary">@c.Id</td>
+                <td>
+                    <div class="fw-bold text-primary">
+                        <i class="bi bi-person-circle text-secondary me-1"></i> @c.Name
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-light text-dark border">
+                        <i class="bi bi-phone me-1"></i> @c.Phone
+                    </span>
+                </td>
+                <td>@c.Address</td>
+
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning me-2" @onclick="() => EditCustomer(c)">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteCustomer(c)">
+                        <i class="bi bi-trash3-fill"></i>
+                    </button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<Customer> customers = new List<Customer>();
+    private Customer currentCus = new Customer();
+    private bool isEditing = false;
+    private string searchText = "";
+
+    // Đặt URL API ra biến để dễ sửa
+    private string apiUrl = "https://localhost:7225/api/customers";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    // Tách hàm load data riêng để gọi lại sau khi thêm/sửa/xóa
+    private async Task LoadData()
+    {
+        try
+        {
+            customers = await Http.GetFromJsonAsync<List<Customer>>(apiUrl) ?? new List<Customer>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi load data: {ex.Message}");
+        }
+    }
+
+    private IEnumerable<Customer> FilteredCustomers =>
+    customers.Where(c =>
+        string.IsNullOrEmpty(searchText) ||
+        (c.Name != null && c.Name.ToLower().Contains(searchText.ToLower())) ||
+        (c.Phone != null && c.Phone.Contains(searchText))
+    );
+
+    private async Task SaveCustomer()
+    {
+        if (!string.IsNullOrEmpty(currentCus.Name) && !string.IsNullOrEmpty(currentCus.Phone))
+        {
+            if (isEditing)
+            {
+                // GỌI API SỬA (PUT)
+                await Http.PutAsJsonAsync($"{apiUrl}/{currentCus.Id}", currentCus);
+                isEditing = false;
+            }
+            else
+            {
+                // GỌI API THÊM MỚI (POST)
+                // Lưu ý: Không cần gán Id, Server tự sinh
+                await Http.PostAsJsonAsync(apiUrl, currentCus);
+            }
+
+            // Reset form và load lại danh sách mới nhất từ server
+            currentCus = new Customer();
+            await LoadData();
+        }
+    }
+
+    private void EditCustomer(Customer c)
+    {
+        // Copy dữ liệu ra object mới để tránh sửa trực tiếp trên bảng khi chưa ấn Lưu
+        currentCus = new Customer
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Phone = c.Phone,
+                Address = c.Address
+            };
+        isEditing = true;
+    }
+
+    private void CancelEdit()
+    {
+        currentCus = new Customer();
+        isEditing = false;
+    }
+
+    private async Task DeleteCustomer(Customer c)
+    {
+        // Có thể thêm confirm JS ở đây nếu muốn
+        bool confirm = await Task.FromResult(true);
+
+        if (confirm)
+        {
+            // GỌI API XÓA (DELETE)
+            await Http.DeleteAsync($"{apiUrl}/{c.Id}");
+
+            // Load lại danh sách
+            await LoadData();
+        }
+    }
+}

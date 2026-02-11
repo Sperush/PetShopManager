@@ -1,0 +1,337 @@
+﻿@page "/pets"
+@using PetShop_Server.Models
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<h3 class="text-primary mb-4"><i class="bi bi-github me-2"></i> QUẢN LÝ HỒ SƠ THÚ CƯNG</h3>
+
+@* --- GIỮ NGUYÊN PHẦN GIAO DIỆN (HTML) NHƯ CŨ --- *@
+<div class="card p-3 mb-5 shadow-sm bg-light">
+    <div class="row g-3 align-items-start">
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Tên Bé</label>
+            <input @bind="currentPet.Name" class="form-control" placeholder="VD: Lu, Misa..." />
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Loại</label>
+            <select @bind="currentPet.PetTypeId" class="form-select">
+                @foreach (var type in petTypes)
+                {
+                    <option value="@type.Id">@type.TypeName</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Chủ Sở Hữu</label>
+
+            @if (currentPet.CustomerId == 0) // Chưa chọn ai
+            {
+                <div class="position-relative">
+                    <div class="input-group">
+                        <input class="form-control"
+                               placeholder="Nhập ID Khách..."
+                               @bind="ownerSearchKeyword"
+                               @bind:event="oninput"
+                               @onkeyup="SearchOwner" />
+                    </div>
+
+                    @if (suggestedCustomers.Any())
+                    {
+                        <div class="list-group position-absolute w-100 shadow" style="z-index: 1000; max-height: 200px; overflow-y: auto;">
+                            @foreach (var c in suggestedCustomers)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action"
+                                        @onclick="() => SelectOwner(c)">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>ID: @c.Id - @c.Name</strong>
+                                        <small class="text-muted">@c.Phone</small>
+                                    </div>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(ownerSearchKeyword) && ownerSearchKeyword.Length > 1)
+                    {
+                        <div class="text-danger small mt-1">Không tìm thấy ai...</div>
+                    }
+                </div>
+            }
+            else // Đã chọn
+            {
+                <div class="input-group">
+                    <span class="form-control bg-light text-primary fw-bold">
+                        <i class="bi bi-person-check-fill"></i> @selectedOwnerName
+                    </span>
+                    <button class="btn btn-outline-danger" type="button" @onclick="RemoveOwner">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            }
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Cân nặng (kg)</label>
+            <input @bind="currentPet.Weight" type="number" class="form-control" />
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label d-block">&nbsp;</label>
+            @if (isEditing)
+            {
+                <div class="btn-group w-100">
+                    <button class="btn btn-success" @onclick="SavePet"><i class="bi bi-check-lg"></i> Lưu</button>
+                    <button class="btn btn-secondary" @onclick="CancelEdit">Hủy</button>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-primary w-100" @onclick="SavePet"><i class="bi bi-plus-lg"></i> Thêm Mới</button>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="input-group mb-3 w-50">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input class="form-control" placeholder="Nhập ID khách..." @bind="searchText" @bind:event="oninput" />
+</div>
+
+<table class="table table-bordered table-hover align-middle shadow-sm">
+    <thead class="table-primary text-center">
+        <tr>
+            <th>ID</th>
+            <th>Loại</th>
+            <th>Tên Thú Cưng</th>
+            <th>Cân Nặng</th>
+            <th>Chủ Sở Hữu</th>
+            <th>Thao Tác</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var p in FilteredPets)
+        {
+            // Lấy thông tin hiển thị (ưu tiên lấy từ object đi kèm từ API, nếu null thì dò trong list local)
+            var owner = p.Customer ?? customers.FirstOrDefault(c => c.Id == p.CustomerId) ?? null;
+            var typeName = p.PetType?.TypeName ?? petTypes.FirstOrDefault(t => t.Id == p.PetTypeId)?.TypeName ?? "Khác";
+
+            <tr>
+                <td class="text-center">@p.Id</td>
+                <td class="text-center">
+                    <span class="badge bg-info text-dark">@typeName</span>
+                </td>
+                <td class="fw-bold text-primary">@p.Name</td>
+                <td class="text-center">@(p.Weight ?? 0) kg</td>
+                <td>
+                    <div class="fw-bold text-dark">
+                        <i class="bi bi-person-circle text-secondary me-1"></i> ID: @(owner?.Id.ToString() + " - " + (owner?.Name ?? "Loading..."))
+                    </div>
+                    <div class="small text-muted ms-4">
+                        <i class="bi bi-phone me-1"></i> @(owner?.Phone ?? "XXX")
+                    </div>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning me-2" @onclick="() => EditPet(p)"><i class="bi bi-pencil-square"></i></button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeletePet(p)"><i class="bi bi-trash3-fill"></i></button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<Pet> pets = new List<Pet>();
+    private List<Customer> customers = new List<Customer>();
+    private List<PetType> petTypes = new List<PetType>();
+
+    private Pet currentPet = new Pet(); // Khởi tạo rỗng
+    private bool isEditing = false;
+    private string searchText = "";
+    private string ownerSearchKeyword = "";
+    private string selectedOwnerName = "";
+    private List<Customer> suggestedCustomers = new List<Customer>();
+    // URL API (Port 7225)
+    private string baseUrl = "https://localhost:7225/api";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // 1. Load các danh mục trước (Khách, Loại)
+            var t1 = Http.GetFromJsonAsync<List<Customer>>($"{baseUrl}/customers");
+            var t2 = Http.GetFromJsonAsync<List<PetType>>($"{baseUrl}/pettypes");
+
+            await Task.WhenAll(t1, t2); // Chạy song song cho nhanh
+
+            customers = await t1 ?? new List<Customer>();
+            petTypes = await t2 ?? new List<PetType>();
+
+            // 2. Load danh sách Pet sau
+            pets = await Http.GetFromJsonAsync<List<Pet>>($"{baseUrl}/pets") ?? new List<Pet>();
+
+            // 3. Set mặc định
+            if (!isEditing && petTypes.Any())
+            {
+                currentPet.PetTypeId = petTypes.First().Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi load data: {ex.Message}");
+        }
+    }
+
+    // Logic lọc tìm kiếm
+    private IEnumerable<Pet> FilteredPets => pets.Where(p =>
+    {
+        if (string.IsNullOrEmpty(searchText)) return true;
+        return p.CustomerId.ToString().Contains(searchText);
+    });
+    private void SearchOwner()
+    {
+        if (string.IsNullOrWhiteSpace(ownerSearchKeyword))
+        {
+            suggestedCustomers.Clear();
+            return;
+        }
+
+        // Lọc trong danh sách customers đã load
+        // Chuyển về chữ thường để tìm không phân biệt hoa thường
+        var key = ownerSearchKeyword.ToLower();
+
+        suggestedCustomers = customers
+            .Where(c => c.Id.ToString().Contains(key))
+            .Take(5) // Chỉ lấy 5 người để hiển thị cho gọn
+            .ToList();
+    }
+
+    // 2. Hàm chọn chủ từ danh sách gợi ý
+    private void SelectOwner(Customer c)
+    {
+        currentPet.CustomerId = c.Id;
+        selectedOwnerName = $"{c.Name} ({c.Phone})";
+
+        // Dọn dẹp ô tìm kiếm
+        suggestedCustomers.Clear();
+        ownerSearchKeyword = "";
+    }
+
+    // 3. Hàm bỏ chọn
+    private void RemoveOwner()
+    {
+        currentPet.CustomerId = 0;
+        selectedOwnerName = "";
+    }
+    private async Task SavePet()
+    {
+        // 1. Validate Client
+        if (string.IsNullOrEmpty(currentPet.Name))
+        {
+            // Alert: Tên không được trống
+            return;
+        }
+        if (currentPet.CustomerId == 0)
+        {
+            // Alert: Chọn khách hàng
+            return;
+        }
+
+        // 2. Chuẩn bị Object gửi đi
+        // Tạo object mới sạch sẽ chỉ chứa thông tin cần thiết để tránh lỗi circular reference
+        var petDto = new Pet
+            {
+                Id = currentPet.Id,
+                Name = currentPet.Name,
+                Weight = currentPet.Weight,
+                CustomerId = currentPet.CustomerId,
+                PetTypeId = currentPet.PetTypeId,
+
+            // Set null các object quan hệ
+                Customer = null,
+                PetType = null,
+                Bookings = null
+            };
+
+        HttpResponseMessage response;
+
+        if (isEditing)
+        {
+            response = await Http.PutAsJsonAsync($"{baseUrl}/pets/{petDto.Id}", petDto);
+        }
+        else
+        {
+            response = await Http.PostAsJsonAsync($"{baseUrl}/pets", petDto);
+        }
+
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadData();
+            // Reset form
+            currentPet = new Pet { PetTypeId = (petTypes.FirstOrDefault()?.Id ?? 0) };
+            RemoveOwner();
+            isEditing = false;
+        }
+        else
+        {
+            var err = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Lỗi Server: {err}");
+        }
+    }
+
+    private void EditPet(Pet p)
+    {
+        // Clone object để sửa (tránh sửa trực tiếp trên bảng)
+        currentPet = new Pet
+            {
+                Id = p.Id,
+                Name = p.Name,
+                PetTypeId = p.PetTypeId,
+                CustomerId = p.CustomerId,
+                Weight = p.Weight
+            };
+        var owner = customers.FirstOrDefault(c => c.Id == p.CustomerId);
+        if (owner != null)
+        {
+            selectedOwnerName = $"{owner.Name} ({owner.Phone})";
+        }
+        else
+        {
+            // Trường hợp dữ liệu cũ không khớp
+            selectedOwnerName = "Không xác định";
+        }
+
+        isEditing = true;
+    }
+
+    private void CancelEdit()
+    {
+        // Reset về mặc định
+        currentPet = new Pet { PetTypeId = (petTypes.FirstOrDefault()?.Id ?? 0) };
+        RemoveOwner();
+        isEditing = false;
+    }
+
+    private async Task DeletePet(Pet p)
+    {
+        bool confirm = await Task.FromResult(true);
+        if (confirm)
+        {
+            var response = await Http.DeleteAsync($"{baseUrl}/pets/{p.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadData();
+            }
+            else
+            {
+                // Có thể hiện thông báo lỗi (ví dụ: Không xóa được vì đã có booking)
+                Console.WriteLine("Không thể xóa thú cưng này.");
+            }
+        }
+    }
+}
