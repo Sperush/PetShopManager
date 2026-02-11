@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "PetShop_Management",
   "resources": {
-    "hash": "sha256-bmFkL0fKXkFMpdFQnr9Eo7xcB1QLF/JRDRrIwHKhwfU=",
+    "hash": "sha256-69srXfgymrDNyYJi4TPm/Cd30SyzHx+ZoAHzo4tWc90=",
     "jsModuleNative": {
       "dotnet.native.js": "sha256-NljIbpK/1KCj0+knpX8U77Rbl5kTtfFIuFjK7AuczEw="
     },
@@ -49,7 +49,7 @@
       "System.Text.Json.wasm": "sha256-E8wpgoynlHvJ95atxhDug0e+FjBO8pVp6Z+hiFOxgPs=",
       "System.Text.RegularExpressions.wasm": "sha256-nE7XCiyeCswUnRGdXOQvcHP+XMWXcToACrazpZlocBI=",
       "System.Private.CoreLib.wasm": "sha256-7pA/RSHut07PXxvTM0RkFfn1MWAQAnxJXsAtBs1XZpc=",
-      "PetShop_Management.wasm": "sha256-VPSpZpwXI9yukkscgIkqRQYvykAyow+NL2zyoI90HMs="
+      "PetShop_Management.wasm": "sha256-m/8zwGp8EJb8nkvj6Fx5mUsBwmy12eELXzYDobiW1GU="
     }
   },
   "cacheBootResources": true,
