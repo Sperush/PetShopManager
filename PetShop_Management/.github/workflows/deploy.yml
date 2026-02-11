@@ -30,19 +30,19 @@ jobs:
     # Thay 'TEN_REPO' bằng tên Repository của bạn trên Github
     # Ví dụ: nếu link là github.com/TuanAnh/PetShop -> thay thành /PetShop/
     - name: Change base-tag in index.html from / to /ProjectName/
-      run: sed -i 's/<base href="\/" \/>/<base href="\/PetShopManager\/" \/>/g' release/wwwroot/index.html
+      run: sed -i 's/<base href="\/" \/>/<base href="\/PetShopManager\/" \/>/g' release/PetShop_Management/wwwroot/index.html
     
     # 5. Tạo file .nojekyll để Github không chặn các file _framework
     - name: Add .nojekyll file
-      run: touch release/wwwroot/.nojekyll
+      run: touch release/PetShop_Management/wwwroot/.nojekyll
 
     # 6. Copy index.html thành 404.html để reload không bị lỗi
     - name: copy index.html to 404.html
-      run: cp release/wwwroot/index.html release/wwwroot/404.html
+      run: cp release/PetShop_Management/wwwroot/index.html release/PetShop_Management/wwwroot/404.html
 
     # 7. Đẩy code đã build lên nhánh gh-pages
     - name: Commit wwwroot to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
       with:
         branch: gh-pages
-        folder: release/wwwroot
+        folder: release/PetShop_Management/wwwroot
