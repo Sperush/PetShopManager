@@ -1,0 +1,73 @@
+﻿@inherits LayoutComponentBase
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@using System.Text.Json
+@using PetShop_Management.Models
+
+<div class="page">
+    @if (isLoggedIn)
+    {
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+    }
+
+    <main>
+        @if (isLoggedIn)
+        {
+            <div class="top-row px-4 justify-content-end shadow-sm">
+                <div class="d-flex align-items-center">
+                    <span class="me-3 fw-bold text-primary">
+                        <i class="bi bi-person-circle"></i> Xin chào, @currentUserFullName (@currentUserRole)
+                    </span>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="Logout">
+                        Đăng xuất
+                    </button>
+                </div>
+            </div>
+        }
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private bool isLoggedIn = false;
+    private string currentUserFullName = "";
+    private string currentUserRole = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var userJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+            if (string.IsNullOrEmpty(userJson))
+            {
+                if (!Nav.Uri.EndsWith("/login"))
+                {
+                    Nav.NavigateTo("/login");
+                }
+            }
+            else
+            {
+                isLoggedIn = true;
+                try
+                {
+                    var userDoc = JsonDocument.Parse(userJson);
+                    currentUserFullName = userDoc.RootElement.GetProperty("fullName").GetString() ?? "Nhân viên";
+                    currentUserRole = userDoc.RootElement.GetProperty("role").GetString() ?? "";
+                }
+                catch { }
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task Logout()
+    {
+        await JS.InvokeVoidAsync("sessionStorage.removeItem", "user");
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

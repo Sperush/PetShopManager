@@ -1,0 +1,74 @@
+﻿@page "/login"
+@using PetShop_Management.DTOs
+@using PetShop_Management.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Đăng nhập hệ thống</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card shadow-lg border-0 rounded-lg mt-5">
+            <div class="card-header bg-primary text-white text-center">
+                <h3 class="font-weight-light my-2">PET SHOP MANAGER</h3>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+
+                <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                    <div class="form-floating mb-3">
+                        <InputText id="username" class="form-control" @bind-Value="loginModel.Username" placeholder="Tên đăng nhập" required />
+                        <label for="username">Tên đăng nhập</label>
+                    </div>
+                    <div class="form-floating mb-3">
+                        <InputText id="password" type="password" class="form-control" @bind-Value="loginModel.Password" placeholder="Mật khẩu" required />
+                        <label for="password">Mật khẩu</label>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
+                        <button type="submit" class="btn btn-primary w-100 py-2">
+                            <i class="bi bi-box-arrow-in-right"></i> ĐĂNG NHẬP
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+            <div class="card-footer text-center py-3">
+                <div class="small text-muted">Đồ án môn học .NET</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new LoginRequest();
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+        if (!string.IsNullOrEmpty(user))
+        {
+            Nav.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMessage = "";
+        var response = await Http.PostAsJsonAsync("https://localhost:7225/api/accounts/login", loginModel);
+        if (response.IsSuccessStatusCode)
+        {
+            var userStr = await response.Content.ReadAsStringAsync();
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "user", userStr);
+            Nav.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            errorMessage = "Sai tài khoản hoặc mật khẩu!";
+        }
+    }
+}

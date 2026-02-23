@@ -1,0 +1,47 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ master, main ]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-to-github-pages:
+    runs-on: ubuntu-latest
+    steps:
+    # 1. Lấy code về
+    - uses: actions/checkout@v3
+
+    # 2. Cài đặt .NET 8 (Vì project bạn là .NET 8)
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x' 
+
+    # 3. Build Project CLIENT (Chỉ build cái PetShop_Management thôi)
+    # Lưu ý: Sửa lại đường dẫn file .csproj cho đúng vị trí thực tế
+    - name: Publish Client Project
+      run: dotnet publish PetShop_Management/PetShop_Management.csproj -c Release -o release --nologo
+
+    # 4. Sửa đường dẫn base href
+    # Thay 'PetShopManager' bằng TÊN REPO CHÍNH XÁC của bạn trên GitHub
+    # (Phân biệt hoa thường. Ví dụ repo là 'BaiTapLon' thì sửa thành /BaiTapLon/)
+    - name: Change base-tag in index.html
+      run: sed -i 's/<base href="\/" \/>/<base href="\/PetShopManager\/" \/>/g' release/wwwroot/index.html
+    
+    # 5. Fix lỗi 404 của Github Pages
+    - name: Add .nojekyll file
+      run: touch release/wwwroot/.nojekyll
+
+    # 6. Copy index thành 404
+    - name: copy index.html to 404.html
+      run: cp release/wwwroot/index.html release/wwwroot/404.html
+
+    # 7. Đẩy lên nhánh gh-pages
+    - name: Commit wwwroot to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        branch: gh-pages
+        folder: release/wwwroot

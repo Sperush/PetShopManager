@@ -1,0 +1,101 @@
+﻿@page "/order-details/{id:int}"
+@using PetShop_Management.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<div class="container mt-4">
+    <button class="btn btn-outline-secondary mb-3" @onclick="GoBack">
+        <i class="bi bi-arrow-left"></i> Quay lại danh sách
+    </button>
+
+    @if (order == null)
+    {
+        <div class="text-center"><div class="spinner-border"></div> Đang tải hóa đơn...</div>
+    }
+    else
+    {
+        <div class="card shadow border-0">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0"><i class="bi bi-receipt"></i> HÓA ĐƠN BÁN LẺ #@order.Id</h4>
+                <span class="badge bg-light text-success fw-bold">@order.PaymentStatus</span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="text-success border-bottom pb-2">Thông Tin Khách Hàng</h5>
+                        <p class="mb-1"><strong>Họ tên:</strong> @(order.Customer?.Name ?? "Khách lẻ")</p>
+                        <p class="mb-1"><strong>Số điện thoại:</strong> @order.Customer?.Phone</p>
+                        <p class="mb-1"><strong>Địa chỉ:</strong> @order.Customer?.Address</p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <h5 class="text-success border-bottom pb-2">Thông Tin Giao Dịch</h5>
+                        <p class="mb-1"><strong>Ngày mua:</strong> @order.OrderDate?.ToString("dd/MM/yyyy HH:mm")</p>
+                        <p class="mb-1"><strong>PT Thanh toán:</strong> @order.PaymentMethod</p>
+                        <p class="mb-1"><strong>Thu ngân:</strong> Hệ thống</p>
+                    </div>
+                </div>
+
+                <h5 class="text-success border-bottom pb-2">Danh Sách Sản Phẩm</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Sản Phẩm</th>
+                                <th class="text-center">Số Lượng</th>
+                                <th class="text-end">Đơn Giá</th>
+                                <th class="text-end">Thành Tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (order.OrderDetails != null)
+                            {
+                                @foreach (var item in order.OrderDetails)
+                                {
+                                    <tr>
+                                        <td>@item.Product?.Name</td>
+                                        <td class="text-center">@item.Quantity</td>
+                                        <td class="text-end">@item.UnitPriceAtPurchase.ToString("#,##0") đ</td>
+                                        <td class="text-end fw-bold">@((item.UnitPriceAtPurchase * item.Quantity).ToString("#,##0")) đ</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold">TỔNG CỘNG:</td>
+                                <td class="text-end fw-bold text-danger fs-5">
+                                    @order.TotalAmount?.ToString("#,##0") đ
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white text-center text-muted small">
+                Cảm ơn quý khách đã mua sắm tại PetShop!
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private Order? order;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            order = await Http.GetFromJsonAsync<Order>($"https://localhost:7225/api/orders/{Id}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi: {ex.Message}");
+        }
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo("/orders");
+    }
+}

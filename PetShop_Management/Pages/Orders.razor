@@ -1,0 +1,103 @@
+﻿@page "/orders"
+@using PetShop_Management.Models
+@inject HttpClient Http
+
+<PageTitle>Lịch Sử Bán Hàng</PageTitle>
+
+<h3 class="text-primary mb-4">
+    <i class="bi bi-receipt me-2"></i> LỊCH SỬ HÓA ĐƠN BÁN LẺ
+</h3>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        @if (orders == null)
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p>Đang tải dữ liệu...</p>
+            </div>
+        }
+        else if (!orders.Any())
+        {
+            <div class="alert alert-info">Chưa có hóa đơn bán lẻ nào được tạo. Hãy vào Quầy Thu Ngân (POS) để bán hàng.</div>
+        }
+        else
+        {
+            <table class="table table-hover table-bordered align-middle">
+                <thead class="table-primary text-center">
+                    <tr>
+                        <th>Mã HĐ</th>
+                        <th>Khách Hàng</th>
+                        <th>Ngày Mua</th>
+                        <th>Phương Thức</th>
+                        <th>Trạng Thái</th>
+                        <th>Tổng Tiền</th>
+                        <th>Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in orders)
+                    {
+                        <tr>
+                            <td class="text-center fw-bold">#@order.Id</td>
+                            <td>
+                                <div class="fw-bold text-primary">
+                                    <i class="bi bi-person-circle text-secondary me-1"></i>
+                                    @if (order.Customer != null)
+                                    {
+                                        <span>@($"ID: {order.Customer.Id} - {order.Customer.Name}")</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Khách lẻ</span>
+                                    }
+                                </div>
+                                <div class="small text-muted ms-4">
+                                    <i class="bi bi-telephone-fill me-1"></i> @(order.Customer?.Phone)
+                                </div>
+                            </td>
+                            <td class="text-center">@order.CreatedAt?.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="text-center">
+                                @if (order.PaymentMethod == "Tiền mặt")
+                                {
+                                    <span class="badge bg-success"><i class="bi bi-cash"></i> Tiền mặt</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-info text-dark"><i class="bi bi-bank"></i> Chuyển khoản</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success">@order.PaymentStatus</span>
+                            </td>
+                            <td class="text-end fw-bold text-danger fs-6">
+                                @order.TotalAmount?.ToString("#,##0") đ
+                            </td>
+                            <td class="text-center">
+                                <a href="/order-details/@order.Id" class="btn btn-sm btn-info text-white">
+                                    <i class="bi bi-eye-fill"></i> Xem
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Order>? orders;
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            orders = await Http.GetFromJsonAsync<List<Order>>("https://localhost:7225/api/orders");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi load hóa đơn: {ex.Message}");
+            orders = new List<Order>();
+        }
+    }
+}
