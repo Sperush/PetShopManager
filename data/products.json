@@ -1,0 +1,37 @@
+﻿[
+  {
+    "id": 1,
+    "name": "Thức ăn hạt Royal Canin",
+    "category": "Thức ăn",
+    "price": 150000,
+    "stock": 50
+  },
+  {
+    "id": 2,
+    "name": "Pate Whiskas",
+    "category": "Thức ăn",
+    "price": 35000,
+    "stock": 5
+  },
+  {
+    "id": 3,
+    "name": "Áo len cho Mèo",
+    "category": "Phụ kiện",
+    "price": 90000,
+    "stock": 20
+  },
+  {
+    "id": 4,
+    "name": "Sữa tắm SOS",
+    "category": "Vệ sinh",
+    "price": 120000,
+    "stock": 8
+  },
+  {
+    "id": 5,
+    "name": "Vòng cổ chuông",
+    "category": "Phụ kiện",
+    "price": 25000,
+    "stock": 100
+  }
+]

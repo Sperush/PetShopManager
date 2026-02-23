@@ -1,0 +1,34 @@
+﻿[
+  {
+    "id": "B101",
+    "customerId": 1,
+    "petId": 1,
+    "serviceId": 1,
+    "bookingDate": "2026-02-10T08:30:00",
+    "status": "Đã xong"
+  },
+  {
+    "id": "B102",
+    "customerId": 1,
+    "petId": 2,
+    "serviceId": 2,
+    "bookingDate": "2026-02-12T14:00:00",
+    "status": "Chờ xử lý"
+  },
+  {
+    "id": "B103",
+    "customerId": 2,
+    "petId": 3,
+    "serviceId": 3,
+    "bookingDate": "2026-02-14T09:00:00",
+    "status": "Chờ xử lý"
+  },
+  {
+    "id": "B104",
+    "customerId": 2,
+    "petId": 3,
+    "serviceId": 1,
+    "bookingDate": "2026-02-01T10:00:00",
+    "status": "Đã xong"
+  }
+]
