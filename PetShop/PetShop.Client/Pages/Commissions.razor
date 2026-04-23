@@ -81,7 +81,6 @@
     </div>
 </div>
 
-<!-- Tab Navigation -->
 <ul class="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm d-inline-flex border">
     <li class="nav-item">
         <button class="nav-link @(activeTab == 0 ? "active" : "") fw-bold px-4" @onclick="() => activeTab = 0">
@@ -106,7 +105,6 @@ else
 {
     @if (activeTab == 0)
     {
-        <!-- Tab 0: Tổng hợp theo nhân viên -->
         <div class="animate-fade-in">
             <div class="row g-4">
                 @foreach (var emp in EmployeeSummaries)
@@ -156,7 +154,6 @@ else
     }
     else
     {
-        <!-- Tab 1: Danh sách hoa hồng -->
         <div class="card shadow-sm border-0 overflow-hidden animate-fade-in">
             <div class="card-body p-0">
                 <div class="table-responsive">
