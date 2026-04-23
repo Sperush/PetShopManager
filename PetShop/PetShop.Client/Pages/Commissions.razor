@@ -1,0 +1,320 @@
+@page "/commissions"
+<PageTitle>Lịch Sử Hoa Hồng Nhân Viên</PageTitle>
+@using PetShop.DTO
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<h3 class="text-primary mb-4"><i class="bi bi-cash-coin me-2"></i> LỊCH SỬ HOA HỒNG NHÂN VIÊN</h3>
+
+<div class="card shadow-sm border-0 mb-4 bg-primary text-white">
+    <div class="card-body">
+        <h5 class="fw-bold mb-3"><i class="bi bi-gear-fill me-2"></i> THIẾT LẬP TỈ LỆ HOA HỒNG CHUNG (%)</h5>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="small fw-bold">Hoa hồng Bán hàng (%)</label>
+                <div class="input-group">
+                    <input type="number" step="0.1" class="form-control" @bind="salesRate" />
+                    <button class="btn btn-light fw-bold" @onclick='() => SaveGlobalRate("sales_comm", salesRate)'>LƯU</button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="small fw-bold">Hoa hồng Dịch vụ (%)</label>
+                <div class="input-group">
+                    <input type="number" step="0.1" class="form-control" @bind="serviceRate" />
+                    <button class="btn btn-light fw-bold" @onclick='() => SaveGlobalRate("service_comm", serviceRate)'>LƯU</button>
+                </div>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <div class="alert alert-light py-2 mb-0 small text-primary w-100">
+                    <i class="bi bi-info-circle-fill"></i> Tỉ lệ này sẽ được áp dụng tự động cho mọi hóa đơn/lịch hẹn mới.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 bg-white p-3 h-100">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-filter-circle me-2"></i>Bộ lọc thời gian</h5>
+            <div class="row g-2">
+                <div class="col-4">
+                    <label class="small text-muted">Tháng</label>
+                    <select @bind="filterMonth" class="form-select">
+                        @for (int i = 1; i <= 12; i++)
+                        {
+                            <option value="@i">Tháng @i</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-4">
+                    <label class="small text-muted">Năm</label>
+                    <select @bind="filterYear" class="form-select">
+                        @for (int i = 2024; i <= 2026; i++)
+                        {
+                            <option value="@i">Năm @i</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-4">
+                    <label class="small text-muted">Tìm nhân viên</label>
+                    <input type="text" @bind="searchQuery" @bind:event="oninput" class="form-control" placeholder="ID hoặc SĐT..." />
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 bg-dark text-white p-3 h-100 d-flex flex-column justify-content-center">
+            <div class="row text-center">
+                <div class="col-6 border-end border-secondary">
+                    <div class="small opacity-75 uppercase">Tổng hoa hồng tháng</div>
+                    <div class="fs-3 fw-bold text-warning">@FilteredCommissions?.Sum(x => x.received_amount).ToString("#,##0") đ</div>
+                </div>
+                <div class="col-6">
+                    <div class="small opacity-75 uppercase">Số giao dịch</div>
+                    <div class="fs-3 fw-bold text-info">@FilteredCommissions?.Count()</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm d-inline-flex border">
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == 0 ? "active" : "") fw-bold px-4" @onclick="() => activeTab = 0">
+            <i class="bi bi-people-fill me-2"></i>TỔNG HỢP THEO NHÂN VIÊN
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(activeTab == 1 ? "active" : "") fw-bold px-4" @onclick="() => activeTab = 1">
+            <i class="bi bi-list-ul me-2"></i>DANH SÁCH HOA HỒNG
+        </button>
+    </li>
+</ul>
+
+@if (commissions == null)
+{
+    <div class="text-center p-5 card shadow-sm border-0 bg-white">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted fw-bold">Đang tải dữ liệu hoa hồng...</p>
+    </div>
+}
+else
+{
+    @if (activeTab == 0)
+    {
+        <!-- Tab 0: Tổng hợp theo nhân viên -->
+        <div class="animate-fade-in">
+            <div class="row g-4">
+                @foreach (var emp in EmployeeSummaries)
+                {
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100 border-start border-5 border-primary transition-hover">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="bg-soft-primary rounded-circle p-3 me-3">
+                                        <i class="bi bi-person-fill text-primary fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold mb-0 text-dark">@emp.Name</h5>
+                                        <div class="d-flex gap-2 align-items-center mt-1">
+                                            <span class="badge bg-soft-secondary text-secondary rounded-pill px-2 small">ID: @emp.Id</span>
+                                            @if (!string.IsNullOrEmpty(emp.Phone))
+                                            {
+                                                <span class="small text-muted"><i class="bi bi-phone me-1"></i>@emp.Phone</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="border-top pt-3 mt-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-muted small">Tổng nhận tháng này:</span>
+                                        <span class="fs-4 fw-bold text-danger">@emp.TotalAmount.ToString("#,##0") đ</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted small">Số giao dịch:</span>
+                                        <span class="badge bg-light text-dark border rounded-pill px-3">@emp.TransactionCount</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                
+                @if (!EmployeeSummaries.Any())
+                {
+                    <div class="col-12 text-center p-5">
+                        <img src="https://illustrations.popsy.co/gray/no-data.svg" alt="No data" style="width: 150px;" class="mb-3 opacity-50" />
+                        <p class="text-muted fs-5">Không có dữ liệu hoa hồng trong thời gian này.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Tab 1: Danh sách hoa hồng -->
+        <div class="card shadow-sm border-0 overflow-hidden animate-fade-in">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Nhân viên</th>
+                                <th class="text-center">Loại</th>
+                                <th class="text-center">Giao dịch</th>
+                                <th class="text-center">Ngày ghi nhận</th>
+                                <th class="text-center">Tỉ lệ (%)</th>
+                                <th class="text-end pe-4">Thực nhận</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in FilteredCommissions)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-light rounded-circle p-2 me-2">
+                                                <i class="bi bi-person text-secondary"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold text-dark">@c.employee_name</div>
+                                                <div class="small text-muted">@c.employee_phone</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge @(IsService(c.commission_type) ? "bg-soft-info text-info border border-info" : "bg-soft-success text-success border border-success") rounded-pill px-3">
+                                            @(IsService(c.commission_type) ? "Dịch vụ" : "Bán lẻ")
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (c.appointment_id.HasValue)
+                                        {
+                                            <a href="/booking-details/@c.appointment_id" class="btn btn-sm btn-outline-primary rounded-pill px-3">#LH-@c.appointment_id</a>
+                                        }
+                                        else if (c.order_id.HasValue)
+                                        {
+                                            <a href="/order-details/@c.order_id" class="btn btn-sm btn-outline-success rounded-pill px-3">#HĐ-@c.order_id</a>
+                                        }
+                                    </td>
+                                    <td class="text-center text-muted small">@c.recorded_time.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="text-center fw-bold">@c.applied_percentage%</td>
+                                    <td class="text-end fw-bold text-danger pe-4">@c.received_amount.ToString("#,##0") đ</td>
+                                </tr>
+                            }
+                            
+                            @if (!FilteredCommissions.Any())
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center p-5 text-muted">
+                                        Chưa có giao dịch hoa hồng nào trong tháng này.
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+<style>
+    .bg-soft-primary { background-color: rgba(13, 110, 253, 0.1); }
+    .bg-soft-info { background-color: rgba(13, 202, 240, 0.1); }
+    .bg-soft-success { background-color: rgba(25, 135, 84, 0.1); }
+    .bg-soft-secondary { background-color: rgba(108, 117, 125, 0.1); }
+    .transition-hover:hover { transform: translateY(-5px); transition: transform 0.3s ease; box-shadow: 0 1rem 3rem rgba(0,0,0,.175)!important; }
+    .nav-pills .nav-link.active { background-color: #0d6efd; color: white; }
+    .nav-pills .nav-link { color: #495057; transition: all 0.2s; }
+    .animate-fade-in { animation: fadeIn 0.4s ease-in-out; }
+    @@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .uppercase { text-transform: uppercase; letter-spacing: 0.5px; }
+</style>
+
+@code {
+    private List<CommissionDisplay>? commissions;
+    private decimal salesRate;
+    private decimal serviceRate;
+    private int filterMonth = DateTime.Now.Month;
+    private int filterYear = DateTime.Now.Year;
+    private string searchQuery = "";
+    private int activeTab = 0;
+
+    private bool IsService(string type)
+    {
+        if (string.IsNullOrEmpty(type)) return false;
+        var t = type.ToLower();
+        return t.Contains("service") || t.Contains("dịch vụ") || t.Contains("dv");
+    }
+
+    private IEnumerable<CommissionDisplay> FilteredCommissions => (commissions ?? new())
+        .Where(x => x.recorded_time.Month == filterMonth && x.recorded_time.Year == filterYear)
+        .Where(x => string.IsNullOrEmpty(searchQuery) 
+                 || x.employee_id.ToString().Contains(searchQuery) 
+                 || (x.employee_phone != null && x.employee_phone.Contains(searchQuery))
+                 || (x.employee_name != null && x.employee_name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)))
+        .OrderByDescending(x => x.recorded_time);
+
+    private IEnumerable<EmployeeSummary> EmployeeSummaries => FilteredCommissions
+        .GroupBy(x => new { x.employee_id, x.employee_name, x.employee_phone })
+        .Select(g => new EmployeeSummary { 
+            Id = g.Key.employee_id, 
+            Name = g.Key.employee_name ?? "Chưa xác định", 
+            Phone = g.Key.employee_phone,
+            TotalAmount = g.Sum(x => x.received_amount),
+            TransactionCount = g.Count()
+        })
+        .OrderByDescending(x => x.TotalAmount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        try {
+            salesRate = await Http.GetFromJsonAsync<decimal>("/api/commissions/rate/sales_comm");
+            serviceRate = await Http.GetFromJsonAsync<decimal>("/api/commissions/rate/service_comm");
+        } catch { }
+    }
+
+    private async Task LoadData() => commissions = await Http.GetFromJsonAsync<List<CommissionDisplay>>("/api/commissions");
+
+    private async Task SaveGlobalRate(string type, decimal val)
+    {
+        await Http.PostAsync($"/api/commissions/rate?type={type}&value={val}", null);
+        await JSRuntime.InvokeVoidAsync("alert", "Đã cập nhật tỉ lệ hoa hồng chung!");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var userJson = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "user");
+            if (string.IsNullOrEmpty(userJson))
+            {
+                Nav.NavigateTo("/login");
+                return;
+            }
+            
+            bool isAdmin = userJson.Contains("Admin", StringComparison.OrdinalIgnoreCase);
+            bool isManager = userJson.Contains("Qu\u1EA3n l\u00FD", StringComparison.OrdinalIgnoreCase) || userJson.Contains("Manager", StringComparison.OrdinalIgnoreCase);
+            
+            if (!isAdmin && !isManager)
+            {
+                Nav.NavigateTo("/");
+            }
+        }
+    }
+
+    private class EmployeeSummary
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Phone { get; set; }
+        public decimal TotalAmount { get; set; }
+        public int TransactionCount { get; set; }
+    }
+}

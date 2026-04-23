@@ -1,0 +1,304 @@
+@page "/products"
+<PageTitle>Sản Phẩm</PageTitle>
+@using PetShop.DTO
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<h3 class="text-primary mb-4"><i class="bi bi-box-seam-fill me-2"></i> KHO HÀNG & SẢN PHẨM</h3>
+
+<div class="card p-3 mb-4 shadow-sm bg-light">
+    <div class="row g-3 align-items-end mb-2">
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Tên Sản Phẩm</label>
+            <input @bind="currentPrd.product_name" class="form-control" placeholder="VD: Hạt Royal Canin..." />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Danh Mục</label>
+            <input @bind="currentPrd.category" class="form-control" placeholder="VD: Thức ăn, Phụ kiện..." />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Dành cho (Tag)</label>
+            <input @bind="currentPrd.pet_type_tag" class="form-control" placeholder="VD: Chó, Mèo..." />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Số Lượng Tồn</label>
+            <input @bind="currentPrd.stock_quantity" type="number" class="form-control" placeholder="0" />
+        </div>
+    </div>
+
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Giá Nhập (VND)</label>
+            <input @bind="FormattedPurchasePrice" @bind:event="oninput" type="text" class="form-control" placeholder="0" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Giá Bán (VND)</label>
+            <input @bind="FormattedSellingPrice" @bind:event="oninput" type="text" class="form-control" placeholder="0" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Mô tả</label>
+            <input @bind="currentPrd.description" class="form-control" placeholder="Mô tả SP..." />
+        </div>
+        <div class="col-md-2 d-flex align-items-center">
+            <div class="form-check form-switch mt-4">
+                <input class="form-check-input" type="checkbox" role="switch" id="prdActive" @bind="currentPrd.is_active" />
+                <label class="form-check-label fw-bold" for="prdActive">Đang bán</label>
+            </div>
+        </div>
+        <div class="col-md-1"></div> <div class="col-md-2">
+            @if (isEditing)
+            {
+                <div class="d-flex gap-1">
+                    <button class="btn btn-success w-100" @onclick="SaveProduct" title="Lưu">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button class="btn btn-secondary w-100" @onclick="CancelEdit" title="Hủy">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-primary w-100" @onclick="SaveProduct" title="Thêm mới">
+                    <i class="bi bi-plus-lg"></i> Thêm Mới
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm d-inline-flex border">
+    <li class="nav-item">
+        <button class="nav-link @(filterStatus == "all" ? "active" : "") px-4 fw-bold" @onclick='() => SetFilter("all")'>TẤT CẢ</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(filterStatus == "active" ? "active" : "") px-4 fw-bold" @onclick='() => SetFilter("active")'>ĐANG BÁN</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(filterStatus == "inactive" ? "active" : "") px-4 fw-bold" @onclick='() => SetFilter("inactive")'>NGỪNG BÁN</button>
+    </li>
+</ul>
+
+<div class="input-group mb-3 w-50">
+    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+    <input class="form-control" placeholder="Tìm kiếm sản phẩm, phân loại..."
+           @bind="searchTerm" @bind:event="oninput" />
+</div>
+
+<table class="table table-bordered table-striped table-hover align-middle shadow-sm">
+    <thead class="table-primary text-center">
+        <tr>
+            <th>ID</th>
+            <th class="text-start">Sản Phẩm & Phân Loại</th>
+            <th>Giá Nhập</th>
+            <th>Giá Bán</th>
+            <th>Tồn Kho</th>
+            <th>Thao Tác</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var p in PagedProducts)
+        {
+            <tr>
+                <td class="text-center fw-bold">@p.product_id</td>
+                <td>
+                    <div class="fw-bold">@p.product_name</div>
+                    <div class="small">
+                        <span class="badge bg-secondary me-1">@p.category</span>
+                        <span class="badge bg-info text-dark me-1">Dành cho: @(string.IsNullOrEmpty(p.pet_type_tag) ? "Chung" : p.pet_type_tag)</span>
+                        <span class="badge @(p.is_active ? "bg-success" : "bg-danger")">@(p.is_active ? "Đang bán" : "Ngừng bán")</span>
+                    </div>
+                    <div class="small text-muted mt-1 fst-italic">@p.description</div>
+                </td>
+                <td class="text-end text-muted">@p.purchase_price.ToString("#,##0") đ</td>
+                <td class="text-end fw-bold text-primary">@p.selling_price.ToString("#,##0") đ</td>
+                <td class="text-center" style="width: 180px;">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-danger" @onclick="() => UpdateStock(p, -1)">-</button>
+                        <button class="btn btn-light border px-3 disabled text-dark fw-bold">@p.stock_quantity</button>
+                        <button class="btn btn-outline-success" @onclick="() => UpdateStock(p, 1)">+</button>
+                    </div>
+                </td>
+                <td class="text-center text-nowrap">
+                    <button class="btn btn-sm btn-warning me-2" @onclick="() => EditProduct(p)">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(p)">
+                        <i class="bi bi-trash3-fill"></i>
+                    </button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+<div class="d-flex justify-content-end align-items-center mt-3 bg-light p-2 rounded shadow-sm">
+    <div class="btn-group">
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = 1" disabled="@(currentPage == 1)">
+            <i class="bi bi-chevron-double-left"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage--" disabled="@(currentPage == 1)">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <span class="btn btn-sm btn-white disabled px-3">Trang @currentPage / @totalPages</span>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage++" disabled="@(currentPage >= totalPages)">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = totalPages" disabled="@(currentPage >= totalPages)">
+            <i class="bi bi-chevron-double-right"></i>
+        </button>
+    </div>
+</div>
+
+@code {
+    private List<ProductDisplay> products = new();
+    private ProductDisplay currentPrd = new();
+    private string searchTerm = "";
+    private bool isEditing = false;
+    private string apiUrl = "/api/products";
+    private int pageSize = 20;
+    private int currentPage = 1;
+    private string filterStatus = "active";
+    private int totalPages => Math.Max(1, (int)Math.Ceiling((double)FilteredProductsRaw.Count() / pageSize));
+    
+    private void SetFilter(string status)
+    {
+        filterStatus = status;
+        currentPage = 1;
+    }
+
+    private IEnumerable<ProductDisplay> FilteredProductsRaw {
+        get {
+            var query = products.AsEnumerable();
+            
+            if (filterStatus == "active") query = query.Where(p => p.is_active);
+            else if (filterStatus == "inactive") query = query.Where(p => !p.is_active);
+            
+            if (!string.IsNullOrWhiteSpace(searchTerm)) {
+                query = query.Where(p => (p.product_name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                       (p.category?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                       (p.pet_type_tag?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+            return query;
+        }
+    }
+
+    private IEnumerable<ProductDisplay> PagedProducts => FilteredProductsRaw
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            products = await Http.GetFromJsonAsync<List<ProductDisplay>>(apiUrl) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi load data: {ex.Message}");
+        }
+    }
+
+    private string FormattedPurchasePrice
+    {
+        get => currentPrd.purchase_price == 0 ? "" : currentPrd.purchase_price.ToString("#,##0").Replace(",", ".");
+        set
+        {
+            var stringValue = value.Replace(".", "").Replace(",", "");
+            if (decimal.TryParse(stringValue, out var val)) currentPrd.purchase_price = val;
+            else currentPrd.purchase_price = 0;
+        }
+    }
+
+    private string FormattedSellingPrice
+    {
+        get => currentPrd.selling_price == 0 ? "" : currentPrd.selling_price.ToString("#,##0").Replace(",", ".");
+        set
+        {
+            var stringValue = value.Replace(".", "").Replace(",", "");
+            if (decimal.TryParse(stringValue, out var val)) currentPrd.selling_price = val;
+            else currentPrd.selling_price = 0;
+        }
+    }
+
+    private async Task SaveProduct()
+    {
+        if (!string.IsNullOrEmpty(currentPrd.product_name))
+        {
+            if (isEditing)
+            {
+                await Http.PutAsJsonAsync($"{apiUrl}/{currentPrd.product_id}", currentPrd);
+            }
+            else
+            {
+                await Http.PostAsJsonAsync(apiUrl, currentPrd);
+            }
+
+            currentPrd = new();
+            isEditing = false;
+            await LoadData();
+        }
+    }
+
+    private void EditProduct(ProductDisplay p)
+    {
+        currentPrd = new ProductDisplay
+            {
+                product_id = p.product_id,
+                product_name = p.product_name,
+                category = p.category,
+                pet_type_tag = p.pet_type_tag,
+                stock_quantity = p.stock_quantity,
+                purchase_price = p.purchase_price,
+                selling_price = p.selling_price,
+                description = p.description,
+                is_active = p.is_active
+            };
+        isEditing = true;
+    }
+
+    private void CancelEdit()
+    {
+        currentPrd = new();
+        isEditing = false;
+    }
+
+    private async Task UpdateStock(ProductDisplay p, int change)
+    {
+        int newStock = p.stock_quantity + change;
+        if (newStock < 0) return;
+
+        int oldStock = p.stock_quantity;
+        p.stock_quantity = newStock;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"{apiUrl}/{p.product_id}/stock?stockQuantity={newStock}", newStock);
+            if (!response.IsSuccessStatusCode)
+            {
+                p.stock_quantity = oldStock;
+            }
+        }
+        catch
+        {
+            p.stock_quantity = oldStock;
+            Console.WriteLine("Lỗi cập nhật kho");
+        }
+    }
+
+    private async Task DeleteProduct(ProductDisplay p)
+    {
+        var response = await Http.DeleteAsync($"{apiUrl}/{p.product_id}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadData();
+        }
+    }
+}
+

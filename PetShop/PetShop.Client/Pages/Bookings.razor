@@ -1,0 +1,791 @@
+@page "/appointments"
+<PageTitle>Lịch Sử Đặt Lịch</PageTitle>
+@using PetShop.DTO
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="text-primary m-0"><i class="bi bi-calendar-check me-2"></i> DANH SÁCH LỊCH HẸN</h3>
+        <button class="btn btn-primary" @onclick="OpenCreateApptModal">
+            <i class="bi bi-plus-circle me-1"></i> TẠO LỊCH HẸN
+        </button>
+    </div>
+
+
+    <ul class="nav nav-pills mb-3 bg-light p-1 rounded-3 shadow-sm d-inline-flex">
+        <li class="nav-item">
+            <button class="nav-link @(filterStatus == "All" ? "active" : "")" @onclick='() => filterStatus = "All"'>Tất cả</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(filterStatus == "Scheduled" ? "active" : "")" @onclick='() => filterStatus = "Scheduled"'>Đã đặt lịch</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(filterStatus == "In Progress" ? "active" : "")" @onclick='() => filterStatus = "In Progress"'>Đang thực hiện</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(filterStatus == "Completed" ? "active" : "")" @onclick='() => filterStatus = "Completed"'>Hoàn thành</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(filterStatus == "Cancelled" ? "active" : "")" @onclick='() => filterStatus = "Cancelled"'>Đã hủy</button>
+        </li>
+    </ul>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            @if (appointments == null)
+            {
+                <div class="text-center"><div class="spinner-border text-primary"></div> Đang tải dữ liệu...</div>
+            }
+            else if (appointments.Count == 0)
+            {
+                <div class="alert alert-info">Chưa có lịch hẹn nào trong hệ thống!</div>
+            }
+            else
+            {
+                <table class="table table-hover align-middle table-bordered">
+                    <thead class="table-light text-center">
+                        <tr>
+                            <th>Mã</th>
+                            <th>Khách Hàng</th>
+                            <th>Thú Cưng</th>
+                            <th>Nhân Viên</th>
+                            <th>Ngày Hẹn</th>
+                            <th>Tổng Tiền</th>
+                            <th>Thanh Toán</th>
+                            <th>Trạng Thái</th>
+                            <th>Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in PagedApptsList)
+                        {
+                            <tr>
+                                <td class="text-center fw-bold">@item.appointment_id</td>
+                                <td>
+                                    <div class="fw-bold text-dark">
+                                        <i class="bi bi-person-circle text-secondary me-1"></i> @item.customer_name
+                                    </div>
+                                    <div class="small text-muted ms-4">
+                                        <i class="bi bi-geo-alt-fill me-1"></i> @item.customer_address
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="fw-bold">@item.pet_info</div>
+                                    <div class="small text-muted">Cân nặng: @(item.pet_weight?.ToString() ?? "N/A") kg</div>
+                                </td>
+                                <td>
+                                    <div class="badge bg-light text-dark border">
+                                        <i class="bi bi-person-badge me-1"></i> @item.employee_name
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="fw-bold">@item.appointment_time.ToString("dd/MM/yyyy")</div>
+                                    <div class="text-primary small">@item.appointment_time.ToString("HH:mm")</div>
+                                </td>
+                                <td class="text-end fw-bold text-danger">@item.total_amount.ToString("#,##0") đ</td>
+                                <td class="text-center">
+                                    @if (item.payment_status == "Completed")
+                                    {
+                                        <span class="badge bg-success rounded-pill px-3 py-2"><i class="bi bi-check-circle-fill me-1"></i> Đã thanh toán</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark rounded-pill px-3 py-2"><i class="bi bi-clock-fill me-1"></i> Chờ thanh toán</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <select class="form-select form-select-sm" value="@item.appointment_status" @onchange="(e) => UpdateApptStatus(item, e.Value?.ToString())"
+                                            disabled="@(item.payment_status != "Completed")">
+                                        <option value="Scheduled">Đã đặt lịch</option>
+                                        <option value="In Progress">Đang thực hiện</option>
+                                        <option value="Completed">Hoàn thành</option>
+                                        <option value="Cancelled">Hủy hẹn</option>
+                                    </select>
+                                </td>
+                                <td class="text-center text-nowrap">
+                                    <a class="btn btn-sm btn-outline-info me-1" title="Chi tiết" href="/booking-details/@item.appointment_id">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-primary me-1" title="Sửa" @onclick="() => EditAppt(item)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" title="Xóa" @onclick="() => DeleteAppt(item)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="d-flex justify-content-end align-items-center mt-3 bg-light p-2 rounded shadow-sm">
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = 1" disabled="@(currentPage == 1)">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage--" disabled="@(currentPage == 1)">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="btn btn-sm btn-white disabled px-3">Trang @currentPage / @TotalApptsPagesCount</span>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage++" disabled="@(currentPage >= TotalApptsPagesCount)">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = TotalApptsPagesCount" disabled="@(currentPage >= TotalApptsPagesCount)">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (isShowingModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header @(apptModel.payment_status == "Completed" ? "bg-success" : (isReadOnly ? "bg-info" : "bg-primary")) text-white d-flex justify-content-between align-items-center">
+                    <h5 class="modal-title m-0">
+                        <i class="bi @(isReadOnly ? "bi-eye" : (editingApptId == 0 ? "bi-plus-circle" : "bi-pencil-square")) me-2"></i>
+                        @(isReadOnly ? "CHI TIẾT LỊCH HẸN" : (editingApptId == 0 ? "TẠO LỊCH HẸN MỚI" : "CHỈNH SỬA LỊCH HẸN"))
+                        @if (isReadOnly)
+                        {
+                            <span class="ms-2 badge bg-light text-dark">#@apptModel.appointment_id</span>
+                        }
+                    </h5>
+                    <div class="d-flex gap-2">
+                        @if (isReadOnly && apptModel.payment_status == "Pending")
+                        {
+                            <button class="btn btn-light text-success fw-bold btn-sm px-3" @onclick="OpenPaymentSelector">
+                                <i class="bi bi-wallet2 me-1"></i> Thanh toán
+                            </button>
+                        }
+                        <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                    </div>
+                </div>
+                <div class="modal-body bg-light">
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-5">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-header bg-white fw-bold"><i class="bi bi-person-heart"></i> Bước 1: Khách Hàng</div>
+                                <div class="card-body">
+                                    @if (!isReadOnly && editingApptId == 0 && selectedCustomer == null)
+                                    {
+                                        <div class="position-relative mb-3">
+                                            <label class="form-label small text-muted">SĐT Khách hàng</label>
+                                            <input @bind="searchPhone" @bind:event="oninput" type="text" class="form-control" placeholder="Nhập số điện thoại..." />
+                                            @if (!string.IsNullOrWhiteSpace(searchPhone) && selectedCustomer == null)
+                                            {
+                                                <ul class="list-group position-absolute w-100 shadow-sm" style="z-index: 1000;">
+                                                    @if (MatchedCustomers.Any())
+                                                    {
+                                                        @foreach (var c in MatchedCustomers)
+                                                        {
+                                                            <li class="list-group-item list-group-item-action cursor-pointer" @onclick="() => SelectCustomer(c)">
+                                                                <strong>@c.phone</strong> - @c.FullName
+                                                            </li>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <li class="list-group-item list-group-item-action cursor-pointer py-3 text-center" @onclick='() => Nav.NavigateTo($"/customers?search={searchPhone}")'>
+                                                            <div class="text-danger fw-bold"><i class="bi bi-person-plus-fill me-2"></i> CHƯA CÓ KHÁCH - TẠO MỚI?</div>
+                                                            <small class="text-muted">Đăng ký khách hàng mới với số @searchPhone</small>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            }
+                                        </div>
+                                    }
+                                    @if (selectedCustomer != null)
+                                    {
+                                        <div class="alert alert-success d-flex justify-content-between align-items-center p-2 mb-0">
+                                            <div>
+                                                <strong>@selectedCustomer.FullName</strong> <br />
+                                                <small>@selectedCustomer.phone</small>
+                                            </div>
+                                            @if (!isReadOnly && editingApptId == 0)
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="ClearCustomer"><i class="bi bi-x-lg"></i></button>
+                                            }
+                                        </div>
+                                    }
+                                    else if (isReadOnly || editingApptId > 0)
+                                    {
+                                        <div class="alert alert-secondary">@apptModel.customer_name</div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-header bg-white fw-bold"><i class="bi bi-info-circle"></i> Bước 2: Thú Cưng & Thời Gian</div>
+                                <div class="card-body">
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label small text-muted">Thú cưng</label>
+                                            @if (isReadOnly)
+                                            {
+                                                <input class="form-control" value="@apptModel.pet_info" disabled />
+                                            }
+                                            else
+                                            {
+                                                <select @bind="apptModel.pet_id" class="form-select">
+                                                    <option value="0">-- Chọn thú cưng --</option>
+                                                    @foreach (var p in CustomerPets)
+                                                    {
+                                                        <option value="@p.pet_id">@p.pet_name (@p.species)</option>
+                                                    }
+                                                </select>
+                                            }
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label small text-muted">Thời gian hẹn</label>
+                                            <input type="datetime-local" @bind="apptModel.appointment_time" class="form-control" disabled="@isReadOnly" />
+                                        </div>
+                                        <div class="col-12 mt-2">
+                                            @if ((selectedCustomer?.reward_points ?? 0) > 0 || (apptModel.used_reward_points ?? 0) > 0)
+                                            {
+                                                <div class="card bg-warning bg-opacity-10 border-warning border-opacity-25 p-2">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <span class="small fw-bold text-dark"><i class="bi bi-star-fill text-warning me-1"></i> Điểm tích lũy:</span>
+                                                        <span class="badge bg-warning text-dark">@(selectedCustomer?.reward_points ?? 0) điểm</span>
+                                                    </div>
+                                                    @if ((selectedCustomer?.reward_points ?? 0) > 0 && editingApptId == 0)
+                                                    {
+                                                        <div class="input-group input-group-sm mt-2">
+                                                            <span class="input-group-text bg-white">Dùng:</span>
+                                                            <input type="number" class="form-control" @bind="apptModel.used_reward_points" min="0" max="@(Math.Min(selectedCustomer.reward_points, (int)apptModel.Details.Sum(d => d.price_at_booking)))" />
+                                                            <button class="btn btn-outline-warning" @onclick="() => apptModel.used_reward_points = Math.Min(selectedCustomer.reward_points, (int)apptModel.Details.Sum(d => d.price_at_booking))">Tất cả</button>
+                                                        </div>
+                                                    }
+                                                    else if (apptModel.used_reward_points > 0)
+                                                    {
+                                                        <div class="mt-1 small text-danger fw-bold">Đã dùng: @apptModel.used_reward_points điểm</div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        @if (editingApptId > 0 && !isReadOnly)
+                                        {
+                                            <div class="col-12 mt-2">
+                                                <label class="form-label small text-muted">Trạng thái lịch hẹn</label>
+                                                <select @bind="apptModel.appointment_status" class="form-select" disabled="@(apptModel.payment_status != "Completed")">
+                                                    <option value="Scheduled">Đã đặt lịch</option>
+                                                    <option value="In Progress">Đang thực hiện</option>
+                                                    <option value="Completed">Hoàn thành</option>
+                                                    <option value="Cancelled">Hủy hẹn</option>
+                                                </select>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-scissors me-1"></i> Bước 3: Đăng ký dịch vụ</span>
+                            @if (!isReadOnly)
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="AddEmptyServiceLine"><i class="bi bi-plus-lg"></i> Thêm Dịch Vụ</button>
+                            }
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 35%;">Dịch vụ</th>
+                                        <th style="width: 30%;">Nhân viên</th>
+                                        <th style="width: 25%;">Giá</th>
+                                        <th style="width: 10%;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var detail in apptModel.Details)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <select class="form-select" value="@detail.service_id" @onchange="(e) => OnServiceSelected(detail, e)" disabled="@isReadOnly">
+                                                    <option value="0">-- Chọn --</option>
+                                                    @foreach (var s in services)
+                                                    {
+                                                        <option value="@s.service_id">@s.service_name</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <select class="form-select" @bind="detail.employee_id" disabled="@isReadOnly">
+                                                    <option value="0">-- Chọn --</option>
+                                                    @foreach (var e in FilteredEmployees)
+                                                    {
+                                                        <option value="@e.employee_id">@e.FullName</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control text-end" value="@detail.price_at_booking.ToString("#,##0")" disabled />
+                                                    <span class="input-group-text">đ</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                @if (!isReadOnly)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => apptModel.Details.Remove(detail)"><i class="bi bi-trash"></i></button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger mt-3">@errorMessage</div>
+                    }
+
+
+                    <div class="row mt-4">
+                        <div class="col-md-6 offset-md-6">
+                            <div class="card border-0 bg-white shadow-sm">
+                                <div class="card-body p-3">
+                                    @{
+                                        var subtotal = apptModel.Details.Sum(d => d.price_at_booking);
+                                        var discount = apptModel.used_reward_points ?? 0;
+                                        var total = Math.Max(0, subtotal - discount);
+                                    }
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Tổng tiền dịch vụ:</span>
+                                        <span class="fw-bold">@subtotal.ToString("#,##0") đ</span>
+                                    </div>
+                                    @if (discount > 0)
+                                    {
+                                        <div class="d-flex justify-content-between mb-2 text-success">
+                                            <span>Giảm giá (Điểm):</span>
+                                            <span>- @discount.ToString("#,##0") đ</span>
+                                        </div>
+                                    }
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fw-bold fs-5 text-dark">KHÁCH PHẢI TRẢ:</span>
+                                        <span class="fw-bold fs-4 text-danger">@total.ToString("#,##0") đ</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button class="btn btn-secondary" @onclick="CloseModal">@(isReadOnly ? "Đóng" : "Hủy")</button>
+                    @if (!isReadOnly)
+                    {
+                        @if (editingApptId > 0)
+                        {
+                            <button class="btn btn-outline-primary px-4" @onclick="SaveOnlyAppt">LƯU THAY ĐỔI</button>
+                        }
+                        <button class="btn btn-primary px-5 fw-bold" @onclick="OpenPaymentSelector">@(editingApptId == 0 ? "TIẾP TỤC THANH TOÁN" : "THANH TOÁN LẠI")</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isShowingPaymentSelectorModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i> CHỌN HÌNH THỨC THANH TOÁN</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isShowingPaymentSelectorModal = false"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="text-center mb-4">
+                        <div class="text-muted small text-uppercase fw-bold">Tổng tiền cần thanh toán</div>
+                        @{
+                            var totalAmount = Math.Max(0, apptModel.Details.Sum(d => d.price_at_booking) - (apptModel.used_reward_points ?? 0));
+                        }
+                        <div class="display-5 fw-bold text-danger">@totalAmount.ToString("#,##0") <small>đ</small></div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(selectedPaymentMethod == "Tiền mặt" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => selectedPaymentMethod = "Tiền mặt"'>
+                                <i class="bi bi-cash-stack display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Tiền mặt</span>
+                            </button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(selectedPaymentMethod == "Chuyển khoản" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => selectedPaymentMethod = "Chuyển khoản"'>
+                                <i class="bi bi-qr-code display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Chuyển khoản</span>
+                            </button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(selectedPaymentMethod == "Quẹt thẻ" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => selectedPaymentMethod = "Quẹt thẻ"'>
+                                <i class="bi bi-credit-card display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Quẹt thẻ</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (selectedPaymentMethod == "Chuyển khoản")
+                    {
+                        <div class="card border-0 shadow-sm rounded-4 text-center p-3 animate-fade-in bg-white">
+                            @if (!string.IsNullOrEmpty(bankId) && !string.IsNullOrEmpty(accountNo))
+                            {
+                                <div class="mb-2 small text-muted text-uppercase fw-bold">Quét mã để thanh toán</div>
+                                <img src="@(GetVietQRUrl(totalAmount))" class="img-fluid rounded-3 mb-2 shadow-sm" style="max-height: 250px;" />
+                                <div class="fw-bold text-primary">@accountName</div>
+                                <div class="small">@bankId - @accountNo</div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-warning py-2 small mb-0">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i> Chưa cấu hình thông tin ngân hàng trong Cài đặt!
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-0 p-3 bg-white">
+                    <button class="btn btn-secondary btn-lg rounded-3 px-4" @onclick="() => isShowingPaymentSelectorModal = false">Quay lại</button>
+                    <button class="btn btn-primary btn-lg rounded-3 px-5 fw-bold" @onclick="SubmitAppt">@(editingApptId == 0 ? "XÁC NHẬN ĐẶT LỊCH" : "XÁC NHẬN THANH TOÁN")</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isShowingModal = false;
+    private bool isReadOnly = false;
+    private int editingApptId = 0;
+
+    private bool isShowingPaymentSelectorModal = false;
+    private string selectedPaymentMethod = "Tiền mặt";
+    private string bankId = "";
+    private string accountNo = "";
+    private string accountName = "";
+
+    private async Task OpenPaymentSelector()
+    {
+        errorMessage = "";
+        if (apptModel.Details.Count == 0) { errorMessage = "Lịch hẹn trống!"; return; }
+
+        try
+        {
+            bankId = (await Http.GetStringAsync("/api/settings/bank_id"))?.Trim('"') ?? "";
+            accountNo = (await Http.GetStringAsync("/api/settings/account_no"))?.Trim('"') ?? "";
+            accountName = (await Http.GetStringAsync("/api/settings/account_name"))?.Trim('"') ?? "";
+        }
+        catch { }
+
+        isShowingPaymentSelectorModal = true;
+    }
+
+    private string GetVietQRUrl(decimal amount)
+    {
+        if (string.IsNullOrEmpty(bankId) || string.IsNullOrEmpty(accountNo)) return "";
+        var description = $"Thanh toan lich hen {DateTime.Now:yyyyMMddHHmm}";
+        return $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.png?amount={amount}&addInfo={Uri.EscapeDataString(description)}&accountName={Uri.EscapeDataString(accountName)}";
+    }
+
+    private List<AppointmentDisplay> appointments = new();
+    private string filterStatus = "All";
+    private int pageSize = 20;
+    private int currentPage = 1;
+
+    private IEnumerable<AppointmentDisplay> FilteredApptsList => (appointments ?? new())
+        .Where(a => filterStatus == "All" || a.appointment_status == filterStatus)
+        .OrderBy(a => GetStatusWeight(a.appointment_status))
+        .ThenByDescending(a => a.appointment_time);
+
+    private IEnumerable<AppointmentDisplay> PagedApptsList => FilteredApptsList.Skip((currentPage - 1) * pageSize).Take(pageSize);
+    private int TotalApptsPagesCount => Math.Max(1, (int)Math.Ceiling((double)FilteredApptsList.Count() / pageSize));
+
+    private int GetStatusWeight(string status) => status switch
+    {
+        "Scheduled" => 1,
+        "In Progress" => 2,
+        "Completed" => 3,
+        "Cancelled" => 4,
+        _ => 99
+    };
+
+    private List<CustomerDisplay> customers = new();
+    private List<EmployeeDisplay> employees = new();
+    private List<ServiceDisplay> services = new();
+    private List<PetDisplay> pets = new();
+
+    private string searchPhone = "";
+    private CustomerDisplay? selectedCustomer;
+    private AppointmentDisplay apptModel = new();
+    private string errorMessage = "";
+
+    private IEnumerable<CustomerDisplay> MatchedCustomers =>
+        string.IsNullOrWhiteSpace(searchPhone) ? Array.Empty<CustomerDisplay>() :
+        customers.Where(c => c.phone != null && c.phone.Contains(searchPhone));
+
+    private IEnumerable<PetDisplay> CustomerPets =>
+        selectedCustomer == null ? Array.Empty<PetDisplay>() :
+        pets.Where(p => p.customer_id == selectedCustomer.customer_id);
+
+    private IEnumerable<EmployeeDisplay> FilteredEmployees => employees.Where(e =>
+    {
+        if (string.IsNullOrEmpty(e.role_name)) return true;
+        var r = e.role_name.ToLower();
+        return !r.Contains("quản lý") && !r.Contains("cskh") && !r.Contains("lễ tân") && !r.Contains("bán hàng") && e.role_id != 1 && e.is_active;
+    });
+
+    [Inject] PetShop.Services.WorkShiftService WorkShiftService { get; set; }
+    [Inject] NavigationManager Navigation { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAppointments();
+
+
+        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+        if (!string.IsNullOrEmpty(query))
+        {
+            var highlightPart = query.Split('&').FirstOrDefault(p => p.Contains("highlight="));
+            if (highlightPart != null)
+            {
+                var val = highlightPart.Split('=')[1];
+                if (int.TryParse(val, out int hId))
+                {
+                    var appt = appointments.FirstOrDefault(a => a.appointment_id == hId);
+                    if (appt != null) Navigation.NavigateTo($"/booking-details/{appt.appointment_id}");
+                }
+            }
+        }
+
+        var userJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+        if (!string.IsNullOrEmpty(userJson))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(userJson);
+                int roleId = 0;
+                if (doc.RootElement.TryGetProperty("role_id", out var ridProp))
+                {
+                    if (ridProp.ValueKind == System.Text.Json.JsonValueKind.Number) roleId = ridProp.GetInt32();
+                    else if (ridProp.ValueKind == System.Text.Json.JsonValueKind.String && int.TryParse(ridProp.GetString(), out int rid)) roleId = rid;
+                }
+
+                if (roleId != 1)
+                {
+                    int empId = 0;
+                    if (doc.RootElement.TryGetProperty("employee_id", out var eidProp))
+                    {
+                        if (eidProp.ValueKind == System.Text.Json.JsonValueKind.Number) empId = eidProp.GetInt32();
+                        else if (eidProp.ValueKind == System.Text.Json.JsonValueKind.String && int.TryParse(eidProp.GetString(), out int eid)) empId = eid;
+                    }
+                    if (empId > 0 && !await WorkShiftService.IsShiftActiveAsync(empId))
+                        Nav.NavigateTo("/checkin", true);
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task LoadAppointments() => appointments = await Http.GetFromJsonAsync<List<AppointmentDisplay>>("/api/appointments");
+
+    private async Task UpdatePaymentStatus(AppointmentDisplay item, string status)
+    {
+        await Http.PostAsync($"/api/appointments/{item.appointment_id}/payment?status={status}", null);
+        item.payment_status = status;
+    }
+
+    private async Task ConfirmPayment()
+    {
+        if (apptModel.appointment_id == 0) return;
+        var res = await Http.PostAsync($"/api/appointments/{apptModel.appointment_id}/payment?status=Completed", null);
+        if (res.IsSuccessStatusCode)
+        {
+            apptModel.payment_status = "Completed";
+            await LoadAppointments();
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateApptStatus(AppointmentDisplay item, string status)
+    {
+        await Http.PostAsync($"/api/appointments/{item.appointment_id}/status?status={status}", null);
+        item.appointment_status = status;
+    }
+
+    private async Task DeleteAppt(AppointmentDisplay item)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"Xóa lịch hẹn #{item.appointment_id}?")) return;
+        var res = await Http.DeleteAsync($"/api/appointments/{item.appointment_id}");
+        if (res.IsSuccessStatusCode) await LoadAppointments();
+    }
+
+    private async Task OpenCreateApptModal()
+    {
+        isShowingModal = true; isReadOnly = false; editingApptId = 0;
+        searchPhone = ""; selectedCustomer = null; errorMessage = "";
+        apptModel = new AppointmentDisplay { appointment_time = DateTime.Now.AddHours(1) };
+        apptModel.Details.Add(new AppointmentDetailItem());
+        await LoadMasterData();
+        await SetLoggedInEmployee();
+    }
+
+    private async Task SetLoggedInEmployee()
+    {
+        var userJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+        if (!string.IsNullOrEmpty(userJson))
+        {
+            try
+            {
+                using var userDoc = System.Text.Json.JsonDocument.Parse(userJson);
+                if (userDoc.RootElement.TryGetProperty("account_id", out var idProp))
+                {
+                    var accId = idProp.GetInt32();
+                    var emp = employees.FirstOrDefault(e => e.account_id == accId);
+                    if (emp != null) { apptModel.employee_id = emp.employee_id; }
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task EditAppt(AppointmentDisplay appt)
+    {
+        await LoadMasterData();
+        isShowingModal = true; isReadOnly = false; editingApptId = appt.appointment_id;
+        apptModel = await Http.GetFromJsonAsync<AppointmentDisplay>($"/api/appointments/{appt.appointment_id}");
+        selectedCustomer = customers.FirstOrDefault(c => c.customer_id == apptModel.customer_id || c.FullName == apptModel.customer_name);
+    }
+
+    private async Task LoadMasterData()
+    {
+        if (!customers.Any()) customers = await Http.GetFromJsonAsync<List<CustomerDisplay>>("/api/customers") ?? new();
+        if (!employees.Any()) employees = await Http.GetFromJsonAsync<List<EmployeeDisplay>>("/api/employees") ?? new();
+        if (!services.Any()) services = await Http.GetFromJsonAsync<List<ServiceDisplay>>("/api/services") ?? new();
+        if (!pets.Any()) pets = await Http.GetFromJsonAsync<List<PetDisplay>>("/api/pets") ?? new();
+    }
+
+    private void CloseModal() => isShowingModal = false;
+    private void SelectCustomer(CustomerDisplay c) { selectedCustomer = c; searchPhone = ""; apptModel.pet_id = 0; }
+    private void ClearCustomer() { selectedCustomer = null; apptModel.pet_id = 0; }
+    private void AddEmptyServiceLine() => apptModel.Details.Add(new AppointmentDetailItem());
+
+    private void OnServiceSelected(AppointmentDetailItem detail, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int sid) && sid > 0)
+        {
+            detail.service_id = sid;
+            var srv = services.FirstOrDefault(s => s.service_id == sid);
+            if (srv != null) detail.price_at_booking = srv.current_price;
+        }
+    }
+
+    private decimal CalculateTotalPayment() => apptModel.Details.Sum(d => d.price_at_booking);
+
+    private async Task SubmitAppt()
+    {
+        errorMessage = "";
+        if (apptModel.Details.Count == 0 || apptModel.Details.Any(d => d.service_id == 0)) { errorMessage = "Vui lòng chọn đủ dịch vụ!"; return; }
+
+        decimal totalAmount = apptModel.Details.Sum(d => d.price_at_booking);
+        if ((apptModel.used_reward_points ?? 0) > totalAmount)
+        {
+            errorMessage = "Điểm sử dụng không được vượt quá tổng giá trị dịch vụ!";
+            return;
+        }
+
+
+        apptModel.payment_status = "Completed";
+
+        try
+        {
+            HttpResponseMessage res;
+            if (editingApptId == 0) res = await Http.PostAsJsonAsync("/api/appointments", apptModel);
+            else res = await Http.PutAsJsonAsync($"/api/appointments/{editingApptId}", apptModel);
+
+            if (res.IsSuccessStatusCode)
+            {
+                int apptId = editingApptId;
+                if (editingApptId == 0)
+                {
+                    var result = await res.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                    if (result.TryGetProperty("appointment_id", out var idProp)) apptId = idProp.GetInt32();
+                }
+
+                if (selectedPaymentMethod == "Chuyển khoản")
+                {
+                    var payAmount = (int)Math.Max(0, apptModel.Details.Sum(d => d.price_at_booking) - (apptModel.used_reward_points ?? 0));
+                    var payRes = await Http.PostAsJsonAsync("/api/payment/create", new { OrderCode = (long)apptId, Amount = payAmount, Description = $"Lich hen #{apptId}" });
+                    if (payRes.IsSuccessStatusCode)
+                    {
+                        var payData = await payRes.Content.ReadFromJsonAsync<PayOSLinkResponse>();
+                        if (!string.IsNullOrEmpty(payData?.checkoutUrl))
+                        {
+                            await JS.InvokeVoidAsync("open", payData.checkoutUrl, "_blank");
+                        }
+                    }
+                }
+
+                isShowingPaymentSelectorModal = false;
+                CloseModal();
+                await LoadAppointments();
+            }
+            else
+            {
+                var msg = await res.Content.ReadAsStringAsync();
+                if (msg.Contains("đã có lịch") || msg.Contains("đã bận"))
+                {
+                    await JS.InvokeVoidAsync("alert", "LỊCH BẬN: " + msg + " \n\nVui lòng chọn khung giờ khác hoặc nhân viên khác!");
+                }
+                else
+                {
+                    errorMessage = "Lỗi đặt lịch: " + msg;
+                }
+            }
+        }
+        catch (Exception ex) { errorMessage = "Lỗi hệ thống: " + ex.Message; }
+    }
+
+    private async Task SaveOnlyAppt()
+    {
+        errorMessage = "";
+        if (apptModel.Details.Count == 0 || apptModel.Details.Any(d => d.service_id == 0)) { errorMessage = "Vui lòng chọn đủ dịch vụ!"; return; }
+
+        var res = await Http.PutAsJsonAsync($"/api/appointments/{editingApptId}", apptModel);
+        if (res.IsSuccessStatusCode)
+        {
+            isShowingModal = false;
+            await LoadAppointments();
+            await JS.InvokeVoidAsync("alert", "Đã cập nhật lịch hẹn thành công!");
+        }
+        else
+        {
+            var msg = await res.Content.ReadAsStringAsync();
+            if (msg.Contains("đã có lịch") || msg.Contains("đã bận"))
+            {
+                await JS.InvokeVoidAsync("alert", "LỊCH BẬN: " + msg + " \n\nVui lòng chọn khung giờ khác hoặc nhân viên khác!");
+            }
+            else
+            {
+                errorMessage = "Lỗi khi cập nhật: " + msg;
+            }
+        }
+    }
+
+    public class PayOSLinkResponse { public string checkoutUrl { get; set; } }
+}

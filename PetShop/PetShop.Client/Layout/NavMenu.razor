@@ -1,0 +1,91 @@
+<div class="sidebar-header navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold d-flex align-items-center" href="">
+            <div class="brand-icon me-2">
+                <i class="bi bi-house-heart-fill"></i>
+            </div>
+            <span>PET SHOP</span>
+        </a>
+    </div>
+</div>
+
+<div class="nav-scrollable custom-nav">
+    <nav class="flex-column">
+        <div class="nav-item">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2"></i> <span>Tổng Quan</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-category">Giao dịch & Hẹn</div>
+
+        <div class="nav-item">
+            <NavLink class="nav-link" href="appointments">
+                <i class="bi bi-calendar-check"></i> <span>Lịch Hẹn</span>
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="orders">
+                <i class="bi bi-receipt"></i> <span>Hóa Đơn Bán Lẻ</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-category">Khách hàng & Thú cưng</div>
+
+        <div class="nav-item">
+            <NavLink class="nav-link" href="customers">
+                <i class="bi bi-people-fill"></i> <span>Khách Hàng</span>
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="pets">
+                <i class="bi bi-clipboard2-heart"></i> <span>Hồ Sơ Thú Cưng</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-category">Cửa hàng & Nhân sự</div>
+
+        <div class="nav-item">
+            <NavLink class="nav-link" href="products">
+                <i class="bi bi-box-seam-fill"></i> <span>Kho Hàng</span>
+            </NavLink>
+        </div>
+        
+        @if (IsAdmin)
+        {
+            <div class="nav-item">
+                <NavLink class="nav-link" href="services">
+                    <i class="bi bi-scissors"></i> <span>Dịch Vụ</span>
+                </NavLink>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="employees">
+                    <i class="bi bi-person-vcard"></i> <span>Nhân Viên</span>
+                </NavLink>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="workshifts">
+                    <i class="bi bi-clock-history"></i> <span>Ca Làm Việc</span>
+                </NavLink>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="commissions">
+                    <i class="bi bi-cash-coin"></i> <span>Hoa Hồng</span>
+                </NavLink>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="settings">
+                    <i class="bi bi-gear-fill"></i> <span>Cài Đặt</span>
+                </NavLink>
+            </div>
+        }
+    </nav>
+</div>
+
+@code {
+    [Parameter]
+    public string UserRole { get; set; } = "";
+
+    private bool IsAdmin => UserRole.Contains("Quản") || UserRole.Contains("Admin");
+}
+

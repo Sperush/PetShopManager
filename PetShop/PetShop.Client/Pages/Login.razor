@@ -1,0 +1,99 @@
+@page "/login"
+@using PetShop.DTO
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Đăng nhập hệ thống</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card shadow-lg border-0 rounded-lg mt-5">
+            <div class="card-header bg-primary text-white text-center">
+                <h3 class="font-weight-light my-2">PET SHOP MANAGER</h3>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger py-2">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+                    </div>
+                }
+
+                <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                    <div class="form-floating mb-3">
+                        <InputText id="username" class="form-control" @bind-Value="loginModel.Username" placeholder="Tên đăng nhập" required />
+                        <label for="username">Tên đăng nhập</label>
+                    </div>
+                    <div class="form-floating mb-3">
+                        <InputText id="password" type="password" class="form-control" @bind-Value="loginModel.Password" placeholder="Mật khẩu" required />
+                        <label for="password">Mật khẩu</label>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
+                        <button type="submit" class="btn btn-primary w-100 py-2" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span> <span>Đang xử lý...</span>
+                            }
+                            else
+                            {
+                                <span><i class="bi bi-box-arrow-in-right me-1"></i> ĐĂNG NHẬP</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+            <div class="card-footer text-center py-3">
+                <div class="small text-muted">Hệ thống Quản lý PetShop</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new LoginRequest();
+    private string errorMessage = "";
+    private bool isLoading = false;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var user = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+            if (!string.IsNullOrEmpty(user))
+            {
+                Nav.NavigateTo("/");
+            }
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMessage = "";
+        isLoading = true;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/accounts/login", loginModel);
+            if (response.IsSuccessStatusCode)
+            {
+                var userStr = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("sessionStorage.setItem", "user", userStr);
+                Nav.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+                errorMessage = errorMessage.Trim('"');
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "Không thể kết nối đến máy chủ. Vui lòng thử lại sau!";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

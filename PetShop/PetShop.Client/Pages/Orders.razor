@@ -1,0 +1,501 @@
+@page "/orders"
+@using PetShop.DTO
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using System.Text.Json
+
+<PageTitle>Lịch Sử Bán Hàng</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="text-primary m-0"><i class="bi bi-receipt me-2"></i> LỊCH SỬ HÓA ĐƠN BÁN LẺ</h3>
+    <button class="btn btn-primary" @onclick="OpenCreateOrderModal">
+        <i class="bi bi-plus-circle me-1"></i> TẠO HÓA ĐƠN MỚI
+    </button>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        @if (orders == null)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-2 text-muted">Đang tải dữ liệu...</p>
+            </div>
+        }
+        else if (!PagedOrdersList.Any())
+        {
+            <div class="text-center p-5">
+                <i class="bi bi-receipt-cutoff display-1 text-muted"></i>
+                <p class="mt-3 fs-5 text-muted">Không có hóa đơn nào phù hợp.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-center">
+                        <tr>
+                            <th>Mã HĐ</th>
+                            <th>Khách Hàng</th>
+                            <th>Ngày Mua</th>
+                            <th>Phương Thức</th>
+                            <th>Trạng Thái</th>
+                            <th>Tổng Tiền</th>
+                            <th>Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in PagedOrdersList)
+                        {
+                            <tr>
+                                <td class="text-center fw-bold">#@order.order_id</td>
+                                <td>
+                                    <div class="fw-bold text-primary">@order.customer_name</div>
+                                    <div class="small text-muted">@order.customer_phone</div>
+                                </td>
+                                <td class="text-center">@order.created_time.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="text-center">
+                                    <span class="badge @(order.payment_method == "Tiền mặt" ? "bg-success" : "bg-info text-dark")">
+                                        @order.payment_method
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @(order.payment_status == "Completed" ? "bg-success" : "bg-warning text-dark") rounded-pill px-3">
+                                        @(order.payment_status == "Completed" ? "Đã thanh toán" : "Chờ thanh toán")
+                                    </span>
+                                </td>
+                                <td class="text-end fw-bold text-danger pe-4">@order.total_amount.ToString("#,##0") đ</td>
+                                <td class="text-center">
+                                    <a href="/order-details/@order.order_id" class="btn btn-sm btn-outline-info me-1"><i class="bi bi-eye"></i></a>
+                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditOrder(order)"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteOrder(order)"><i class="bi bi-trash"></i></button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-end align-items-center mt-3 bg-light p-2 rounded shadow-sm">
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = 1" disabled="@(currentPage == 1)">
+                        <i class="bi bi-chevron-double-left"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage--" disabled="@(currentPage == 1)">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="btn btn-sm btn-white disabled px-3">Trang @currentPage / @TotalPagesCount</span>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage++" disabled="@(currentPage >= TotalPagesCount)">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = TotalPagesCount" disabled="@(currentPage >= TotalPagesCount)">
+                        <i class="bi bi-chevron-double-right"></i>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (isShowingModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1050;">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-cart-plus me-2"></i> @(editingOrderId == 0 ? "TẠO HÓA ĐƠN MỚI" : "CẬP NHẬT HÓA ĐƠN")</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body bg-light p-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-primary mb-3"><i class="bi bi-person-search me-1"></i> THÔNG TIN KHÁCH HÀNG</h6>
+                                    <div class="position-relative mb-3">
+                                        <label class="form-label small text-muted">SĐT Khách hàng</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                            <input type="text" class="form-control" @bind="searchPhone" @bind:event="oninput" placeholder="Nhập SĐT khách hàng..." />
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(searchPhone))
+                                        {
+                                            @if (MatchedCustomers.Any())
+                                            {
+                                                <ul class="list-group position-absolute w-100 shadow border-0 mt-1" style="z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                                    @foreach (var c in MatchedCustomers)
+                                                    {
+                                                        <li class="list-group-item list-group-item-action cursor-pointer py-2" @onclick="() => SelectCustomer(c)">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <div>
+                                                                    <div class="fw-bold text-primary">@c.phone</div>
+                                                                    <div class="small text-muted">@c.FullName</div>
+                                                                </div>
+                                                                <i class="bi bi-plus-circle text-success"></i>
+                                                            </div>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            }
+                                            else
+                                            {
+                                                <ul class="list-group position-absolute w-100 shadow border-0 mt-1" style="z-index: 1000;">
+                                                    <li class="list-group-item list-group-item-action cursor-pointer py-3 text-center" @onclick='() => Nav.NavigateTo($"/customers?search={searchPhone}")'>
+                                                        <div class="text-danger fw-bold"><i class="bi bi-person-plus-fill me-2"></i> KHÔNG TÌM THẤY - TẠO MỚI?</div>
+                                                        <small class="text-muted">Bấm vào đây để đăng ký khách hàng mới</small>
+                                                    </li>
+                                                </ul>
+                                            }
+                                        }
+                                    </div>
+                                    <div class="p-3 bg-light rounded-3 border">
+                                        <div class="small text-muted mb-1">Khách hàng:</div>
+                                        <div class="fw-bold fs-5 text-dark">@(selectedCustomer?.FullName ?? "KHÁCH VÃNG LAI")</div>
+                                        @if (selectedCustomer != null)
+                                        {
+                                            <div class="small text-muted mt-1"><i class="bi bi-gem text-warning"></i> Điểm thưởng: @selectedCustomer.reward_points</div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-8">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="fw-bold text-primary m-0"><i class="bi bi-box-seam me-1"></i> DANH SÁCH SẢN PHẨM</h6>
+                                        <button class="btn btn-sm btn-success rounded-pill" @onclick="AddProductRow"><i class="bi bi-plus"></i> Thêm</button>
+                                    </div>
+                                    <div class="table-responsive" style="max-height: 350px;">
+                                        <table class="table table-sm align-middle">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Sản phẩm</th>
+                                                    <th style="width: 100px;">SL</th>
+                                                    <th style="width: 140px;">Đơn giá</th>
+                                                    <th style="width: 140px;">Thành tiền</th>
+                                                    <th style="width: 40px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var d in orderModel.Details)
+                                                {
+                                                    <tr>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" value="@d.product_id" @onchange="(e) => OnProductSelected(d, e)">
+                                                                <option value="0">-- Chọn sản phẩm --</option>
+                                                                @foreach (var p in products)
+                                                                {
+                                                                    <option value="@p.product_id">@p.product_name (Tồn: @p.stock_quantity)</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td><input type="number" class="form-control form-control-sm text-center" @bind="d.quantity" min="1" /></td>
+                                                        <td><input type="text" class="form-control form-control-sm text-end bg-white" value="@d.price_at_purchase.ToString("#,##0")" disabled /></td>
+                                                        <td class="text-end fw-bold">@((d.quantity * d.price_at_purchase).ToString("#,##0")) đ</td>
+                                                        <td><button class="btn btn-sm text-danger" @onclick="() => orderModel.Details.Remove(d)"><i class="bi bi-x-circle"></i></button></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger mt-3 py-2 small">@errorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer bg-white border-top shadow-sm">
+                    <div class="flex-grow-1">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <label class="small text-muted d-block">Điểm sử dụng:</label>
+                                <input type="number" class="form-control form-control-sm" @bind="orderModel.used_reward_points" style="width: 120px;" />
+                            </div>
+                            <div class="col text-end">
+                                <span class="fs-5 text-muted me-2">TỔNG THANH TOÁN:</span>
+                                <span class="fs-3 fw-bold text-danger">@((orderModel.Details.Sum(d => d.quantity * d.price_at_purchase) - (orderModel.used_reward_points ?? 0)).ToString("#,##0")) đ</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary px-4" @onclick="CloseModal">Hủy bỏ</button>
+                    @if (editingOrderId > 0)
+                    {
+                        <button class="btn btn-outline-primary px-4" @onclick="SaveOnlyOrder">LƯU THAY ĐỔI</button>
+                    }
+                    <button class="btn btn-primary px-5 fw-bold" @onclick="OpenPaymentSelector">@(editingOrderId == 0 ? "XÁC NHẬN THANH TOÁN" : "THANH TOÁN LẠI")</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isShowingPaymentSelectorModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i> CHỌN HÌNH THỨC THANH TOÁN</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isShowingPaymentSelectorModal = false"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="text-center mb-4">
+                        <div class="text-muted small text-uppercase fw-bold">Tổng tiền cần thanh toán</div>
+                        @{
+                            var totalAmount = Math.Max(0, orderModel.Details.Sum(d => d.quantity * d.price_at_purchase) - (orderModel.used_reward_points ?? 0));
+                        }
+                        <div class="display-5 fw-bold text-danger">@totalAmount.ToString("#,##0") <small>đ</small></div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(orderModel.payment_method == "Tiền mặt" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => orderModel.payment_method = "Tiền mặt"'>
+                                <i class="bi bi-cash-stack display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Tiền mặt</span>
+                            </button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(orderModel.payment_method == "Chuyển khoản" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => orderModel.payment_method = "Chuyển khoản"'>
+                                <i class="bi bi-qr-code display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Chuyển khoản</span>
+                            </button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(orderModel.payment_method == "Quẹt thẻ" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => orderModel.payment_method = "Quẹt thẻ"'>
+                                <i class="bi bi-credit-card display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Quẹt thẻ</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (orderModel.payment_method == "Chuyển khoản")
+                    {
+                        <div class="card border-0 shadow-sm rounded-4 text-center p-3 animate-fade-in bg-white">
+                            @if (!string.IsNullOrEmpty(bankId) && !string.IsNullOrEmpty(accountNo))
+                            {
+                                <div class="mb-2 small text-muted text-uppercase fw-bold">Quét mã để thanh toán</div>
+                                <img src="@(GetVietQRUrl(totalAmount))" class="img-fluid rounded-3 mb-2 shadow-sm" style="max-height: 250px;" />
+                                <div class="fw-bold text-primary">@accountName</div>
+                                <div class="small">@bankId - @accountNo</div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-warning py-2 small mb-0">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i> Chưa cấu hình thông tin ngân hàng trong Cài đặt!
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-0 p-3 bg-white">
+                    <button class="btn btn-secondary btn-lg rounded-3 px-4" @onclick="() => isShowingPaymentSelectorModal = false">Quay lại</button>
+                    <button class="btn btn-primary btn-lg rounded-3 px-5 fw-bold" @onclick="SubmitOrder">XÁC NHẬN & IN</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<OrderDisplay>? orders;
+    private string filterPaymentStatus = "All";
+    private int pageSize = 20;
+    private int currentPage = 1;
+
+    private IEnumerable<OrderDisplay> FilteredOrdersList => (orders ?? new()).Where(o => filterPaymentStatus == "All" || o.payment_status == filterPaymentStatus);
+    private IEnumerable<OrderDisplay> PagedOrdersList => FilteredOrdersList.Skip((currentPage - 1) * pageSize).Take(pageSize);
+    private int TotalPagesCount => Math.Max(1, (int)Math.Ceiling((double)FilteredOrdersList.Count() / pageSize));
+
+    private bool isShowingPaymentSelectorModal = false;
+    private string bankId = "";
+    private string accountNo = "";
+    private string accountName = "";
+
+    private async Task OpenPaymentSelector()
+    {
+        errorMessage = "";
+        if (orderModel.Details.Count == 0) { errorMessage = "Đơn hàng trống!"; return; }
+
+        bankId = (await Http.GetStringAsync("/api/settings/bank_id"))?.Trim('"') ?? "";
+        accountNo = (await Http.GetStringAsync("/api/settings/account_no"))?.Trim('"') ?? "";
+        accountName = (await Http.GetStringAsync("/api/settings/account_name"))?.Trim('"') ?? "";
+
+        isShowingPaymentSelectorModal = true;
+    }
+
+    private string GetVietQRUrl(decimal amount)
+    {
+        if (string.IsNullOrEmpty(bankId) || string.IsNullOrEmpty(accountNo)) return "";
+
+        var description = $"Thanh toan don hang {DateTime.Now:yyyyMMddHHmm}";
+        return $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.png?amount={amount}&addInfo={Uri.EscapeDataString(description)}&accountName={Uri.EscapeDataString(accountName)}";
+    }
+    private bool isShowingModal = false;
+    private int editingOrderId = 0;
+
+    private List<CustomerDisplay> customers = new();
+    private List<EmployeeDisplay> employees = new();
+    private List<ProductDisplay> products = new();
+
+    private string searchPhone = "";
+    private CustomerDisplay? selectedCustomer;
+    private OrderFullDisplay orderModel = new();
+    private string errorMessage = "";
+    private string loggedInEmployeeName = "Đang tải...";
+    private int currentUserRoleId = 0;
+    private bool isScanning = false;
+
+    private IEnumerable<CustomerDisplay> MatchedCustomers =>
+        customers.Where(c => !string.IsNullOrEmpty(searchPhone) && c.phone != null && c.phone.Contains(searchPhone));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+        await LoadMasterData();
+        await SetLoggedInEmployee();
+    }
+
+    private async Task SetLoggedInEmployee()
+    {
+        var userJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+        if (!string.IsNullOrEmpty(userJson))
+        {
+            try
+            {
+                using var userDoc = JsonDocument.Parse(userJson);
+                var root = userDoc.RootElement;
+                if (root.TryGetProperty("account_id", out var idProp))
+                {
+                    int accId = idProp.GetInt32();
+                    var emp = employees.FirstOrDefault(e => e.account_id == accId);
+                    if (emp != null)
+                    {
+                        orderModel.employee_id = emp.employee_id;
+                        loggedInEmployeeName = emp.FullName;
+                    }
+                    if (root.TryGetProperty("role_id", out var roleProp)) currentUserRoleId = roleProp.GetInt32();
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task LoadOrders() => orders = await Http.GetFromJsonAsync<List<OrderDisplay>>("/api/orders");
+
+    private async Task LoadMasterData()
+    {
+        customers = await Http.GetFromJsonAsync<List<CustomerDisplay>>("/api/customers") ?? new();
+        employees = await Http.GetFromJsonAsync<List<EmployeeDisplay>>("/api/employees") ?? new();
+        products = await Http.GetFromJsonAsync<List<ProductDisplay>>("/api/products") ?? new();
+    }
+
+    private void OpenCreateOrderModal()
+    {
+        isShowingModal = true;
+        editingOrderId = 0;
+        searchPhone = "";
+        selectedCustomer = null;
+        errorMessage = "";
+        orderModel = new OrderFullDisplay();
+        AddProductRow();
+        SetLoggedInEmployee();
+    }
+
+    private async Task EditOrder(OrderDisplay order)
+    {
+        await LoadMasterData();
+        isShowingModal = true;
+        editingOrderId = order.order_id;
+        orderModel = await Http.GetFromJsonAsync<OrderFullDisplay>($"/api/orders/{order.order_id}") ?? new();
+        selectedCustomer = customers.FirstOrDefault(c => c.customer_id == orderModel.customer_id);
+    }
+
+    private async Task DeleteOrder(OrderDisplay order)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", $"Xóa hóa đơn #{order.order_id}?"))
+        {
+            var res = await Http.DeleteAsync($"/api/orders/{order.order_id}");
+            if (res.IsSuccessStatusCode) await LoadOrders();
+        }
+    }
+
+    private void CloseModal() => isShowingModal = false;
+
+    private void SelectCustomer(CustomerDisplay c)
+    {
+        selectedCustomer = c;
+        orderModel.customer_id = c.customer_id;
+        searchPhone = "";
+    }
+
+    private void AddProductRow() => orderModel.Details.Add(new OrderDetailItemDisplay { quantity = 1 });
+
+    private void OnProductSelected(OrderDetailItemDisplay detail, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int pid))
+        {
+            detail.product_id = pid;
+            var p = products.FirstOrDefault(x => x.product_id == pid);
+            if (p != null) detail.price_at_purchase = p.selling_price;
+        }
+    }
+
+    private async Task SubmitOrder()
+    {
+        if (orderModel.Details.Count == 0 || orderModel.Details.Any(d => d.product_id == 0))
+        {
+            errorMessage = "Vui lòng chọn sản phẩm và số lượng!";
+            return;
+        }
+
+        orderModel.customer_id = selectedCustomer?.customer_id ?? 0;
+        if (editingOrderId == 0 || orderModel.payment_status != "Completed") 
+        {
+            orderModel.payment_status = "Completed";
+        }
+
+        HttpResponseMessage res;
+        if (editingOrderId == 0) res = await Http.PostAsJsonAsync("/api/orders", orderModel);
+        else res = await Http.PutAsJsonAsync($"/api/orders/{editingOrderId}", orderModel);
+
+        if (res.IsSuccessStatusCode)
+        {
+            isShowingModal = false;
+            isShowingPaymentSelectorModal = false;
+            await LoadOrders();
+            await JS.InvokeVoidAsync("alert", "Hóa đơn đã được lưu thành công!");
+        }
+        else errorMessage = "Lỗi khi lưu hóa đơn: " + await res.Content.ReadAsStringAsync();
+    }
+
+    private async Task SaveOnlyOrder()
+    {
+        if (orderModel.Details.Count == 0 || orderModel.Details.Any(d => d.product_id == 0))
+        {
+            errorMessage = "Vui lòng chọn sản phẩm và số lượng!";
+            return;
+        }
+
+        orderModel.customer_id = selectedCustomer?.customer_id ?? 0;
+        
+        var res = await Http.PutAsJsonAsync($"/api/orders/{editingOrderId}", orderModel);
+        if (res.IsSuccessStatusCode)
+        {
+            isShowingModal = false;
+            await LoadOrders();
+            await JS.InvokeVoidAsync("alert", "Đã cập nhật hóa đơn thành công!");
+        }
+        else errorMessage = "Lỗi khi cập nhật: " + await res.Content.ReadAsStringAsync();
+    }
+}

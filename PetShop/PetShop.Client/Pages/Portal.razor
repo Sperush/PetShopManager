@@ -1,0 +1,815 @@
+@page "/portal"
+@using PetShop.DTO
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@layout MainLayout
+
+<PageTitle>Pet Shop Portal - Đặt lịch & Ưu đãi</PageTitle>
+
+<div class="portal-container animate-fade-in">
+    
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary fs-3" href="/portal">
+                <i class="bi bi-house-heart-fill me-2"></i>PET SHOP
+            </a>
+            <div class="d-flex align-items-center">
+                @if (isCustomerLoggedIn)
+                {
+                    <div class="d-flex align-items-center gap-3 animate-fade-in">
+                        <div class="d-flex align-items-center bg-warning bg-opacity-10 px-3 py-2 rounded-pill border border-warning border-opacity-25">
+                            <i class="bi bi-star-fill text-warning me-2"></i>
+                            <span class="text-dark fw-bold">@customerPoints <small class="text-muted">điểm</small></span>
+                        </div>
+                        
+                        <div class="text-end d-none d-md-block">
+                            <div class="small text-muted">Chào mừng quay lại,</div>
+                            <div class="fw-bold text-primary">@customerName</div>
+                        </div>
+
+                        <button class="btn btn-outline-danger rounded-pill px-3 py-2 ms-2 shadow-sm d-flex align-items-center" @onclick="CustomerLogout">
+                            <i class="bi bi-box-arrow-right me-1"></i> <span class="d-none d-sm-inline">ĐĂNG XUẤT</span>
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <button class="btn btn-primary rounded-pill px-4 me-2 shadow-sm" @onclick="OpenLoginModal">
+                        ĐĂNG NHẬP
+                    </button>
+                    <button class="btn btn-outline-primary rounded-pill px-4" @onclick="OpenRegisterModal">
+                        ĐĂNG KÝ 
+                    </button>
+                }
+            </div>
+        </div>
+    </nav>
+
+    
+    <div class="hero-section text-white text-center d-flex align-items-center justify-content-center" 
+         style="background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('/brain/722e726b-3e92-4f3f-b628-83108e722370/pet_shop_portal_hero_1776953893471.png'); background-size: cover; background-position: center; height: 500px;">
+        <div class="container animate-slide-up">
+            <h1 class="display-3 fw-bold mb-3 shadow-text">Chăm Sóc Thú Cưng Tận Tâm</h1>
+            <p class="lead mb-4 fs-4 shadow-text">Đặt lịch làm đẹp và chăm sóc cho người bạn bốn chân ngay hôm nay!</p>
+            <button class="btn btn-warning btn-lg rounded-pill px-5 py-3 fw-bold shadow-lg" @onclick="ScrollToServices">
+                ĐẶT LỊCH NGAY <i class="bi bi-arrow-right ms-2"></i>
+            </button>
+        </div>
+    </div>
+
+    
+    <div id="services-section" class="container py-5 mt-4">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold text-dark mb-2">DỊCH VỤ CỦA CHÚNG TÔI</h2>
+            <div class="bg-primary mx-auto" style="width: 80px; height: 4px; border-radius: 2px;"></div>
+        </div>
+
+        <div class="row g-4">
+            @if (services == null)
+            {
+                <div class="text-center col-12 py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2">Đang tải danh sách dịch vụ...</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var s in services)
+                {
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm rounded-4 service-card overflow-hidden">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div class="service-icon-box bg-soft-primary text-primary rounded-3 p-3">
+                                        <i class="bi bi-scissors fs-3"></i>
+                                    </div>
+                                    <span class="badge bg-success rounded-pill px-3 py-2">@s.current_price.ToString("#,##0") đ</span>
+                                </div>
+                                <h4 class="fw-bold text-dark mb-2">@s.service_name</h4>
+                                <p class="text-muted small mb-4"><i class="bi bi-clock me-1"></i> Thời gian dự kiến: @s.estimated_duration phút</p>
+                                <button class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold" @onclick="() => StartBooking(s)">
+                                    CHỌN DỊCH VỤ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    
+    @if (isCustomerLoggedIn)
+    {
+        <div class="container py-5">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold text-dark mb-2">LỊCH SỬ ĐẶT LỊCH</h2>
+                <div class="bg-primary mx-auto" style="width: 80px; height: 4px; border-radius: 2px;"></div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-muted small text-uppercase fw-bold">
+                                <tr>
+                                    <th class="ps-4 py-3">Thú cưng</th>
+                                    <th class="py-3">Dịch vụ</th>
+                                    <th class="py-3">Thời gian</th>
+                                    <th class="py-3">Trạng thái</th>
+                                    <th class="py-3">Thanh toán</th>
+                                    <th class="pe-4 py-3 text-end">Chi tiết</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (customerAppointments == null)
+                                {
+                                    <tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>
+                                }
+                                else if (!customerAppointments.Any())
+                                {
+                                    <tr><td colspan="6" class="text-center py-5 text-muted">Bạn chưa có lịch hẹn nào.</td></tr>
+                                }
+                                else
+                                {
+                                    @foreach (var a in PagedAppointments)
+                                    {
+                                        <tr>
+                                            <td class="ps-4">
+                                                <div class="fw-bold text-dark">@a.pet_info</div>
+                                            </td>
+                                            <td><span class="text-muted small">@a.service_names</span></td>
+                                            <td>
+                                                <div class="fw-bold">@a.appointment_time.ToString("dd/MM/yyyy")</div>
+                                                <div class="small text-muted">@a.appointment_time.ToString("HH:mm")</div>
+                                            </td>
+                                            <td>
+                                                <span class="badge rounded-pill @GetStatusClass(a.appointment_status)">
+                                                    @GetStatusText(a.appointment_status)
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge rounded-pill @(a.payment_status == "Completed" ? "bg-success" : "bg-warning text-dark")">
+                                                    @(a.payment_status == "Completed" ? "Đã trả" : "Chưa trả")
+                                                </span>
+                                            </td>
+                                            <td class="pe-4 text-end">
+                                                <button class="btn btn-sm btn-soft-primary rounded-circle" @onclick="() => ShowDetails(a)">
+                                                    <i class="bi bi-chevron-right"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @if (TotalPages > 1)
+                {
+                    <div class="card-footer bg-white border-0 py-3 d-flex justify-content-center">
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                @for (int i = 1; i <= TotalPages; i++)
+                                {
+                                    var pageNum = i;
+                                    <li class="page-item @(currentPage == pageNum ? "active" : "")">
+                                        <button class="page-link rounded-pill mx-1" @onclick="() => currentPage = pageNum">@pageNum</button>
+                                    </li>
+                                }
+                            </ul>
+                        </nav>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    
+    @if (isShowingDetailModal && selectedApptDetails != null)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 1070;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 rounded-4 shadow-lg">
+                    <div class="modal-header bg-dark text-white border-0 py-3">
+                        <h5 class="modal-title fw-bold"><i class="bi bi-info-circle me-2"></i> CHI TIẾT LỊCH HẸN</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="() => isShowingDetailModal = false"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h4 class="fw-bold mb-0">@selectedApptDetails.pet_info</h4>
+                                <div class="text-muted small">Mã lịch hẹn: #@selectedApptDetails.appointment_id</div>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge rounded-pill @GetStatusClass(selectedApptDetails.appointment_status) mb-1 d-block">
+                                    @GetStatusText(selectedApptDetails.appointment_status)
+                                </span>
+                                <span class="badge rounded-pill @(selectedApptDetails.payment_status == "Completed" ? "bg-success" : "bg-warning text-dark")">
+                                    @(selectedApptDetails.payment_status == "Completed" ? "Đã thanh toán" : "Chờ thanh toán")
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="bg-light rounded-3 p-3 mb-4">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="small text-muted">Ngày hẹn</div>
+                                    <div class="fw-bold">@selectedApptDetails.appointment_time.ToString("dd/MM/yyyy")</div>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <div class="small text-muted">Giờ hẹn</div>
+                                    <div class="fw-bold">@selectedApptDetails.appointment_time.ToString("HH:mm")</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h6 class="fw-bold mb-3">DỊCH VỤ SỬ DỤNG</h6>
+                        <div class="list-group list-group-flush mb-4">
+                            @foreach (var d in selectedApptDetails.Details)
+                            {
+                                <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center border-0 border-bottom">
+                                    <div>
+                                        <div class="fw-bold">@d.service_name</div>
+                                        @if (!string.IsNullOrEmpty(d.detail_employee_name))
+                                        {
+                                            <div class="small text-muted"><i class="bi bi-person me-1"></i> @d.detail_employee_name</div>
+                                        }
+                                    </div>
+                                    <div class="fw-bold">@d.price_at_booking.ToString("#,##0") đ</div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center bg-primary bg-opacity-10 p-3 rounded-3">
+                            <span class="fw-bold text-primary fs-5">TỔNG CỘNG</span>
+                            <span class="fw-bold text-primary fs-5">@selectedApptDetails.total_amount.ToString("#,##0") đ</span>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-3">
+                        <button class="btn btn-secondary w-100 rounded-pill py-2 fw-bold" @onclick="() => isShowingDetailModal = false">ĐÓNG</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    
+    <footer class="bg-dark text-white py-5 mt-5">
+        <div class="container text-center">
+            <h3 class="fw-bold text-primary mb-4">PET SHOP</h3>
+            <p class="text-muted mb-4">Mở cửa: 8:00 - 20:00 (Thứ 2 - Chủ Nhật)</p>
+            <div class="d-flex justify-content-center gap-3 mb-4">
+                <a href="#" class="text-white fs-4"><i class="bi bi-facebook"></i></a>
+                <a href="#" class="text-white fs-4"><i class="bi bi-instagram"></i></a>
+                <a href="#" class="text-white fs-4"><i class="bi bi-tiktok"></i></a>
+            </div>
+            <p class="small text-muted">&copy; 2026 Pet Shop Manager. All rights reserved.</p>
+        </div>
+    </footer>
+</div>
+
+
+@if (isShowingBookingModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header bg-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-calendar-plus me-2"></i> ĐẶT LỊCH DỊCH VỤ</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isShowingBookingModal = false"></button>
+                </div>
+                <div class="modal-body p-4">
+                    @if (!isCustomerLoggedIn)
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-person-lock display-1 text-muted mb-3"></i>
+                            <h5 class="fw-bold">VUI LÒNG ĐĂNG NHẬP</h5>
+                            <p class="text-muted mb-4">Bạn cần đăng nhập để thực hiện đặt lịch trực tuyến.</p>
+                            <button class="btn btn-primary rounded-pill px-4" @onclick="OpenLoginModal">ĐĂNG NHẬP NGAY</button>
+                        </div>
+                    }
+                    else
+                    {
+                        
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold">Dịch vụ & Nhân viên</label>
+                            <div class="list-group list-group-flush mb-3 border rounded-3 bg-white">
+                                @foreach (var item in bookingItems)
+                                {
+                                    <div class="list-group-item py-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <div>
+                                                <div class="fw-bold">@item.Service.service_name</div>
+                                                <div class="text-primary small">@item.Service.current_price.ToString("#,##0") đ</div>
+                                            </div>
+                                            @if (bookingItems.Count > 1)
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger border-0" @onclick="() => bookingItems.Remove(item)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            }
+                                        </div>
+                                        <select class="form-select form-select-sm" @bind="item.EmployeeId">
+                                            <option value="0">-- Chọn nhân viên (tùy chọn) --</option>
+                                            @if (employees != null)
+                                            {
+                                                @foreach (var e in employees)
+                                                {
+                                                    <option value="@e.employee_id">@e.FullName</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                }
+                            </div>
+                            
+                            <div class="input-group input-group-sm">
+                                <select class="form-select" @bind="additionalServiceId">
+                                    <option value="0">-- Thêm dịch vụ khác --</option>
+                                    @if (services != null)
+                                    {
+                                        @foreach (var s in services.Where(srv => !bookingItems.Any(bi => bi.Service.service_id == srv.service_id)))
+                                        {
+                                            <option value="@s.service_id">@s.service_name (@s.current_price.ToString("#,##0") đ)</option>
+                                        }
+                                    }
+                                </select>
+                                <button class="btn btn-outline-success" @onclick="AddAdditionalService"><i class="bi bi-plus-lg"></i> Thêm</button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 p-3 bg-primary bg-opacity-10 rounded-3 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-primary">TỔNG CỘNG:</span>
+                            <span class="fw-bold text-primary fs-5">@bookingItems.Sum(i => i.Service.current_price).ToString("#,##0") đ</span>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label small fw-bold mb-0">Chọn Thú Cưng</label>
+                                <button class="btn btn-sm btn-link text-primary p-0 text-decoration-none" @onclick="() => isShowingAddPetModal = true">
+                                    <i class="bi bi-plus-circle me-1"></i> Thêm mới
+                                </button>
+                            </div>
+                            <select class="form-select" @bind="bookingPetId">
+                                <option value="0">-- Chọn thú cưng của bạn --</option>
+                                @foreach (var p in customerPets)
+                                {
+                                    <option value="@p.pet_id">@p.pet_name (@p.species)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ngày Hẹn</label>
+                            <input type="date" class="form-control" @bind="bookingDate" min="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Giờ Hẹn</label>
+                            <input type="time" class="form-control" @bind="bookingTime" />
+                        </div>
+                        <div class="mt-4">
+                            <button class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow" @onclick="ConfirmBooking" disabled="@isProcessing">
+                                @(isProcessing ? "ĐANG XỬ LÝ..." : "XÁC NHẬN ĐẶT LỊCH")
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@if (isShowingRegisterModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header bg-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-person-plus me-2"></i> ĐĂNG KÝ THÀNH VIÊN</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isShowingRegisterModal = false"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Tài khoản (Số điện thoại)</label>
+                        <input @bind="regPhone" class="form-control" placeholder="0xxxxxxxxx" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Mật khẩu</label>
+                        <input @bind="regPass" type="password" class="form-control" placeholder="••••••••" />
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Họ</label>
+                            <input @bind="regFirstName" class="form-control" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Tên</label>
+                            <input @bind="regLastName" class="form-control" />
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow mt-3" @onclick="ConfirmRegister" disabled="@isProcessing">
+                        @(isProcessing ? "ĐANG XỬ LÝ..." : "TẠO TÀI KHOẢN")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@if (isShowingLoginModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header bg-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-in-right me-2"></i> ĐĂNG NHẬP</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isShowingLoginModal = false"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <div class="mb-3 text-start">
+                        <label class="form-label small fw-bold">Tài khoản</label>
+                        <input @bind="loginUser" class="form-control" />
+                    </div>
+                    <div class="mb-4 text-start">
+                        <label class="form-label small fw-bold">Mật khẩu</label>
+                        <input @bind="loginPass" type="password" class="form-control" />
+                    </div>
+                    <button class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow" @onclick="ConfirmLogin" disabled="@isProcessing">
+                        @(isProcessing ? "ĐANG NHẬP" : "ĐĂNG NHẬP")
+                    </button>
+                    <p class="mt-3 small text-muted">Chưa có tài khoản? <a href="javascript:void(0)" @onclick="OpenRegisterModal">Đăng ký ngay</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@if (isShowingAddPetModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header bg-success text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-plus-lg me-2"></i> THÊM HỒ SƠ THÚ CƯNG</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isShowingAddPetModal = false"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Tên thú cưng</label>
+                            <input @bind="newPet.pet_name" class="form-control" placeholder="VD: Lu Lu" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Loài</label>
+                            <select @bind="newPet.species" class="form-select">
+                                <option value="Chó">Chó</option>
+                                <option value="Mèo">Mèo</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Giống</label>
+                            <input @bind="newPet.breed" class="form-control" placeholder="VD: Corgi, Poodle..." />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Giới tính</label>
+                            <select @bind="newPet.gender" class="form-select">
+                                <option value="Đực">Đực</option>
+                                <option value="Cái">Cái</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Màu sắc</label>
+                            <input @bind="newPet.color" class="form-control" placeholder="VD: Trắng, Vàng..." />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Cân nặng (kg)</label>
+                            <input @bind="newPet.weight" type="number" step="0.1" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Ngày sinh</label>
+                            <input type="date" class="form-control" @bind="newPet.birth_date" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Ghi chú / Đặc điểm</label>
+                            <textarea @bind="newPet.note" class="form-control" rows="2" placeholder="Ví dụ: Bé sợ người lạ, bị dị ứng với..."></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button class="btn btn-success w-100 py-3 rounded-pill fw-bold shadow" @onclick="ConfirmAddPet" disabled="@isProcessing">
+                            @(isProcessing ? "ĐANG LƯU HỒ SƠ..." : "THÊM THÚ CƯNG VÀO TÀI KHOẢN")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .portal-container { font-family: 'Outfit', sans-serif; background: #f8f9fa; min-height: 100vh; }
+    .shadow-text { text-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
+    .bg-soft-primary { background: rgba(13, 110, 253, 0.1); color: #0d6efd; }
+    .bg-soft-danger { background: rgba(220, 53, 69, 0.1); }
+    .cursor-pointer { cursor: pointer; }
+    .service-card { transition: all 0.3s ease; }
+    .service-card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important; }
+    .service-icon-box { width: fit-content; }
+    .animate-fade-in { animation: fadeIn 0.8s ease-out; }
+    .animate-slide-up { animation: slideUp 0.8s ease-out; }
+    @@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+    .btn-soft-primary {
+        background: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+        border: none;
+    }
+    .btn-soft-primary:hover {
+        background: #0d6efd;
+        color: white;
+    }
+</style>
+
+@code {
+    private List<ServiceDisplay> services;
+    private List<PetDisplay> customerPets = new();
+    private List<EmployeeDisplay> employees = new();
+    private List<AppointmentDisplay> customerAppointments;
+    
+    private bool isCustomerLoggedIn = false;
+    private string customerName = "";
+    private int customerId = 0;
+    private int customerPoints = 0;
+    
+    private bool isShowingBookingModal = false;
+    private bool isShowingRegisterModal = false;
+    private bool isShowingLoginModal = false;
+    private bool isShowingAddPetModal = false;
+    private bool isShowingDetailModal = false;
+    private bool isProcessing = false;
+    
+    public class PortalBookingItem
+    {
+        public ServiceDisplay Service { get; set; }
+        public int EmployeeId { get; set; }
+    }
+
+    private List<PortalBookingItem> bookingItems = new();
+    private AppointmentDisplay selectedApptDetails;
+    private int additionalServiceId = 0;
+    private int bookingPetId = 0;
+    private DateTime bookingDate = DateTime.Today.AddDays(1);
+    private DateTime bookingTime = DateTime.Today.AddHours(9);
+    
+    private string loginUser = "";
+    private string loginPass = "";
+    
+    private string regPhone = "";
+    private string regPass = "";
+    private string regFirstName = "";
+    private string regLastName = "";
+
+    private int currentPage = 1;
+    private int pageSize = 20;
+
+    private IEnumerable<AppointmentDisplay> PagedAppointments => (customerAppointments ?? new())
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize);
+
+    private int TotalPages => (int)Math.Ceiling((double)(customerAppointments?.Count ?? 0) / pageSize);
+
+    private string GetStatusClass(string s) => s switch {
+        "Scheduled" => "bg-primary text-white",
+        "In Progress" => "bg-info text-dark",
+        "Completed" => "bg-success text-white",
+        "Cancelled" => "bg-danger text-white",
+        _ => "bg-secondary text-white"
+    };
+
+    private string GetStatusText(string s) => s switch {
+        "Scheduled" => "Đã đặt",
+        "In Progress" => "Đang làm",
+        "Completed" => "Xong",
+        "Cancelled" => "Hủy",
+        _ => s
+    };
+
+    private PetDisplay newPet = new() { species = "Chó" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        services = await Http.GetFromJsonAsync<List<ServiceDisplay>>("/api/services");
+        var allEmployees = await Http.GetFromJsonAsync<List<EmployeeDisplay>>("/api/employees") ?? new();
+        employees = allEmployees.Where(e => {
+            if (string.IsNullOrEmpty(e.role_name)) return true;
+            var r = e.role_name.ToLower();
+            return !r.Contains("quản lý") && !r.Contains("cskh") && !r.Contains("lễ tân") && !r.Contains("bán hàng") && e.role_id != 1 && e.is_active;
+        }).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CheckLoginStatus();
+            StateHasChanged();
+        }
+    }
+
+    private async Task CheckLoginStatus()
+    {
+        var userJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "portal_user");
+        if (!string.IsNullOrEmpty(userJson))
+        {
+            var user = System.Text.Json.JsonSerializer.Deserialize<CustomerPortalUser>(userJson);
+            if (user != null)
+            {
+
+                var freshCust = await Http.GetFromJsonAsync<CustomerDisplay>($"/api/customers/account/{user.AccountId}");
+                if (freshCust != null)
+                {
+                    isCustomerLoggedIn = true;
+                    customerName = freshCust.FullName;
+                    customerId = freshCust.customer_id;
+                    customerPoints = freshCust.reward_points;
+                    
+                    await LoadCustomerPets();
+                    await LoadCustomerAppointments();
+                }
+            }
+        }
+    }
+
+    private async Task LoadCustomerAppointments()
+    {
+        customerAppointments = await Http.GetFromJsonAsync<List<AppointmentDisplay>>($"/api/appointments/customer/{customerId}") ?? new();
+    }
+
+    private async Task LoadCustomerPets()
+    {
+        customerPets = await Http.GetFromJsonAsync<List<PetDisplay>>($"/api/pets/customer/{customerId}") ?? new();
+    }
+
+    private async Task ShowDetails(AppointmentDisplay a)
+    {
+        selectedApptDetails = await Http.GetFromJsonAsync<AppointmentDisplay>($"/api/appointments/{a.appointment_id}");
+        isShowingDetailModal = true;
+    }
+
+    private async Task ConfirmAddPet()
+    {
+        if (string.IsNullOrWhiteSpace(newPet.pet_name)) return;
+        isProcessing = true;
+        newPet.customer_id = customerId;
+        
+        var res = await Http.PostAsJsonAsync("/api/pets", newPet);
+        if (res.IsSuccessStatusCode)
+        {
+            await LoadCustomerPets();
+            newPet = new() { species = "Chó" };
+            isShowingAddPetModal = false;
+            await JS.InvokeVoidAsync("alert", "Đã thêm thú cưng thành công!");
+        }
+        isProcessing = false;
+    }
+
+    private async Task ScrollToServices()
+    {
+        await JS.InvokeVoidAsync("scrollToId", "services-section");
+    }
+
+    private void StartBooking(ServiceDisplay s)
+    {
+        bookingItems.Clear();
+        bookingItems.Add(new PortalBookingItem { Service = s });
+        isShowingBookingModal = true;
+    }
+
+    private void AddAdditionalService()
+    {
+        if (additionalServiceId == 0) return;
+        var s = services.FirstOrDefault(x => x.service_id == additionalServiceId);
+        if (s != null && !bookingItems.Any(x => x.Service.service_id == s.service_id))
+        {
+            bookingItems.Add(new PortalBookingItem { Service = s });
+        }
+        additionalServiceId = 0;
+    }
+
+    private void OpenLoginModal() { isShowingLoginModal = true; isShowingRegisterModal = false; }
+    private void OpenRegisterModal() { isShowingRegisterModal = true; isShowingLoginModal = false; }
+
+    private async Task ConfirmLogin()
+    {
+        isProcessing = true;
+
+        var req = new LoginRequest { Username = loginUser, Password = loginPass };
+        var response = await Http.PostAsJsonAsync("/api/accounts/login", req);
+        
+        if (response.IsSuccessStatusCode)
+        {
+            var account = await response.Content.ReadFromJsonAsync<AccountDisplay>();
+
+            var cust = await Http.GetFromJsonAsync<CustomerDisplay>($"/api/customers/account/{account.account_id}");
+            if (cust != null)
+            {
+                var pUser = new CustomerPortalUser { 
+                    CustomerId = cust.customer_id, 
+                    AccountId = account.account_id,
+                    Name = cust.FullName, 
+                    Points = cust.reward_points 
+                };
+                await JS.InvokeVoidAsync("sessionStorage.setItem", "portal_user", System.Text.Json.JsonSerializer.Serialize(pUser));
+                await CheckLoginStatus();
+                isShowingLoginModal = false;
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Tài khoản này không thuộc về khách hàng!");
+            }
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Sai thông tin đăng nhập!");
+        }
+        isProcessing = false;
+    }
+
+    private async Task ConfirmRegister()
+    {
+        if (string.IsNullOrWhiteSpace(regPhone) || string.IsNullOrWhiteSpace(regPass)) return;
+        isProcessing = true;
+        
+        var regReq = new CustomerRegisterRequest { 
+            Phone = regPhone, Password = regPass, 
+            FirstName = regFirstName, LastName = regLastName 
+        };
+        
+        var res = await Http.PostAsJsonAsync("/api/portal/register", regReq);
+        if (res.IsSuccessStatusCode)
+        {
+            await JS.InvokeVoidAsync("alert", "Đăng ký thành công! Hãy đăng nhập.");
+            isShowingRegisterModal = false;
+            OpenLoginModal();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Đăng ký thất bại. Số điện thoại có thể đã tồn tại.");
+        }
+        isProcessing = false;
+    }
+
+    private async Task ConfirmBooking()
+    {
+        if (bookingPetId == 0) { await JS.InvokeVoidAsync("alert", "Vui lòng chọn thú cưng!"); return; }
+        if (!bookingItems.Any()) { await JS.InvokeVoidAsync("alert", "Vui lòng chọn ít nhất một dịch vụ!"); return; }
+        
+        isProcessing = true;
+        
+        var apptTime = bookingDate.Date.Add(bookingTime.TimeOfDay);
+        var req = new AppointmentCreateRequest {
+            pet_id = bookingPetId,
+            appointment_time = apptTime,
+            payment_status = "Pending",
+            Details = bookingItems.Select(i => new AppointmentDetailCreate { 
+                service_id = i.Service.service_id, 
+                price_at_booking = i.Service.current_price,
+                employee_id = i.EmployeeId > 0 ? i.EmployeeId : (int?)null
+            }).ToList()
+        };
+        
+        var res = await Http.PostAsJsonAsync("/api/appointments", req);
+        if (res.IsSuccessStatusCode)
+        {
+            await JS.InvokeVoidAsync("alert", "ĐẶT LỊCH THÀNH CÔNG! Chúng tôi sẽ sớm liên hệ xác nhận.");
+            await LoadCustomerAppointments();
+            isShowingBookingModal = false;
+        }
+        else
+        {
+            var msg = await res.Content.ReadAsStringAsync();
+            if (msg.Contains("đã có lịch") || msg.Contains("đã bận"))
+            {
+                await JS.InvokeVoidAsync("alert", "LỊCH BẬN: " + msg + " \n\nVui lòng chọn khung giờ khác hoặc nhân viên khác!");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Có lỗi xảy ra khi đặt lịch: " + msg);
+            }
+        }
+        isProcessing = false;
+    }
+
+    private async Task CustomerLogout()
+    {
+        await JS.InvokeVoidAsync("sessionStorage.removeItem", "portal_user");
+        isCustomerLoggedIn = false;
+        Nav.NavigateTo("/portal", forceLoad: true);
+    }
+}
+

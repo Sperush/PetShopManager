@@ -1,0 +1,142 @@
+.navbar-toggler {
+    appearance: none;
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+}
+
+.top-row {
+    height: 4rem;
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.navbar-brand {
+    font-size: 1.25rem;
+    letter-spacing: 1px;
+    color: #ffffff !important;
+}
+
+.brand-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.brand-icon ::deep i {
+    color: #ffffff !important;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-category {
+    padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.05em;
+}
+
+.nav-item {
+    padding: 0 0.75rem;
+}
+
+.nav-item ::deep .nav-link {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    color: #94a3b8;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    margin-bottom: 2px;
+    text-decoration: none;
+}
+
+.nav-item ::deep .nav-link i {
+    font-size: 1.25rem;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    transition: transform 0.2s ease;
+}
+
+.nav-item ::deep .nav-link span {
+    font-weight: 500;
+}
+
+.nav-item ::deep .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #f8fafc;
+}
+
+.nav-item ::deep .nav-link:hover i {
+    transform: translateX(3px);
+}
+
+.nav-item ::deep .nav-link.active {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.nav-item ::deep .nav-link.active i {
+    color: #3b82f6;
+}
+
+.nav-scrollable {
+    height: calc(100vh - 4rem);
+    overflow-y: auto;
+}
+
+
+.nav-scrollable::-webkit-scrollbar {
+    width: 4px;
+}
+
+.nav-scrollable::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.nav-scrollable::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+@media (max-width: 640.98px) {
+    .navbar-toggler {
+        display: block;
+    }
+    
+    .nav-scrollable {
+        display: none;
+    }
+
+    .collapse.nav-scrollable {
+        display: none;
+    }
+
+    .nav-scrollable:not(.collapse) {
+        display: block;
+        position: absolute;
+        top: 4rem;
+        left: 0;
+        width: 100%;
+        background-color: #0f172a;
+        z-index: 1000;
+        border-bottom: 2px solid #1e293b;
+    }
+}
+

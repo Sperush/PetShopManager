@@ -1,0 +1,140 @@
+@page "/checkin"
+@using PetShop.DTO
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject PetShop.Services.WorkShiftService WorkShiftService
+
+<PageTitle>Diem danh vao ca</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h4 class="mb-0 fw-bold"><i class="bi bi-qr-code-scan me-2"></i> @(isActive ? "XAC NHAN KET THUC CA" : "XAC NHAN VAO CA")</h4>
+                    <p class="small mb-0 opacity-75">@(isActive ? "Vui long quet ma de ket thuc ca lam viec" : "Vui long quet ma de bat dau ca lam viec")</p>
+                </div>
+                <div class="card-body p-4 text-center">
+                    @if (!isScanning && !isSuccess)
+                    {
+                        <div class="py-5">
+                            <i class="bi @(isActive ? "bi-box-arrow-right" : "bi-geo-alt-fill") text-danger display-1 mb-3"></i>
+                            <h5>@(isActive ? "Ban muon ket thuc ca?" : "Ban dang o cua hang?")</h5>
+                            <p class="text-muted">He thong yeu cau xac nhan thong qua ma QR tai quay.</p>
+                            <button class="btn btn-primary btn-lg rounded-pill px-5 shadow" @onclick="StartScan">
+                                @(isActive ? "Quet ma Ket thuc" : "Bat dau Quet ma")
+                            </button>
+                        </div>
+                    }
+                    
+                    @if (isScanning)
+                    {
+                        <div id="qr-reader-checkin" class="mb-3" style="width: 100%; border-radius: 12px; overflow: hidden;"></div>
+                        <button class="btn btn-outline-secondary rounded-pill px-4" @onclick="StopScan">Huy bo</button>
+                    }
+
+                    @if (isSuccess)
+                    {
+                        <div class="py-5 animate-bounce">
+                            <i class="bi bi-check-circle-fill text-success display-1 mb-3"></i>
+                            <h4 class="text-success fw-bold">@successMessage</h4>
+                            <p>@(isActive ? "Cam on ban da lam viec vat va hom nay!" : "Chao mung ban den voi ca lam viec hom nay.")</p>
+                            <button class="btn btn-success btn-lg rounded-pill px-5" @onclick="GoHome">Vao Dashboard</button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(error))
+                    {
+                        <div class="alert alert-danger mt-3 rounded-3">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i> @error
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isActive = false;
+    private bool isScanning = false;
+    private bool isSuccess = false;
+    private string error = "";
+    private string successMessage = "";
+    private int employeeId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+        if (string.IsNullOrEmpty(userJson))
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(userJson);
+            employeeId = doc.RootElement.GetProperty("employee_id").GetInt32();
+            isActive = await WorkShiftService.IsShiftActiveAsync(employeeId);
+        }
+        catch { Nav.NavigateTo("/login"); }
+    }
+
+    private async Task StartScan()
+    {
+        error = "";
+        isScanning = true;
+        await Task.Delay(100);
+        await JS.InvokeVoidAsync("startQRScanner", "qr-reader-checkin", DotNetObjectReference.Create(this));
+    }
+
+    private async Task StopScan()
+    {
+        isScanning = false;
+        await JS.InvokeVoidAsync("stopQRScanner");
+    }
+
+    [JSInvokable]
+    public async Task OnQRCodeScanned(string code)
+    {
+        await StopScan();
+        
+        var todayStr = DateTime.Now.ToString("yyyyMMdd");
+        var storedSecret = await WorkShiftService.GetQRSecretAsync();
+        var fullSecret = storedSecret + todayStr;
+
+        if (code == fullSecret)
+        {
+            bool res;
+            if (isActive) 
+            {
+                await WorkShiftService.CloseShiftAsync(employeeId);
+                res = true;
+            }
+            else 
+            {
+                var shiftId = await WorkShiftService.GetOrCreateCurrentShiftAsync(employeeId);
+                res = shiftId > 0;
+            }
+
+            if (res)
+            {
+                if (isActive) successMessage = "KET THUC CA THANH CONG!";
+                else successMessage = "VAO CA THANH CONG!";
+                
+                isSuccess = true;
+                StateHasChanged();
+            }
+            else error = "Loi he thong khi cap nhat ca lam viec!";
+        }
+        else
+        {
+            error = "Ma QR khong hop le hoac khong phai cua cua hang!";
+        }
+        StateHasChanged();
+    }
+
+    private void GoHome() => Nav.NavigateTo("/", true);
+}

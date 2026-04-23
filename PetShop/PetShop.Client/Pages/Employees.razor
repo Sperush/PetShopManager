@@ -1,0 +1,403 @@
+@page "/employees"
+<PageTitle>Nhân Viên</PageTitle>
+@using PetShop.DTO
+@using System.Net.Http.Json
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+
+<h3 class="text-primary mb-4"><i class="bi bi-person-vcard-fill me-2"></i> QUẢN LÝ NHÂN VIÊN</h3>
+
+<div class="card p-3 mb-4 shadow-sm bg-light">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Họ</label>
+            <input @bind="currentEmp.first_name" class="form-control" placeholder="VD: Nguyễn" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Tên đệm</label>
+            <input @bind="currentEmp.middle_name" class="form-control" placeholder="VD: Văn" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Tên</label>
+            <input @bind="currentEmp.last_name" class="form-control" placeholder="VD: A" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Chức vụ</label>
+            <div class="input-group">
+                @if (!isAddingNewRole)
+                {
+                    <select class="form-select" @onchange="HandleRoleChange">
+                        <option value="0">-- Chọn chức vụ --</option>
+                        @foreach (var r in roles)
+                        {
+                            <option value="@r.role_id" selected="@(currentEmp.role_id == r.role_id)">
+                                @r.role_name
+                            </option>
+                        }
+                    </select>
+                    <button class="btn btn-outline-primary" type="button" @onclick="ToggleNewRoleInput">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                }
+                else
+                {
+                    <input type="text" class="form-control" placeholder="Nhập chức vụ mới..."
+                           @bind="newRoleName" @bind:event="oninput" />
+
+                    <button class="btn btn-outline-danger" type="button" @onclick="() => isAddingNewRole = false">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Lương CB</label>
+            <input @bind="FormattedSalary" @bind:event="oninput" type="text" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Tài khoản (ID)</label>
+            <input @bind="currentEmp.account_id" type="number" class="form-control" placeholder="Tự cấp" disabled />
+        </div>
+        <div class="col-md-2 mt-2">
+            <label class="form-label fw-bold small">Số Điện Thoại</label>
+            <input @bind="currentEmp.phone" class="form-control" placeholder="SĐT..." />
+        </div>
+        <div class="col-md-5 mt-2">
+            <label class="form-label fw-bold small">Địa chỉ</label>
+            <input @bind="currentEmp.address" class="form-control" placeholder="Nhập địa chỉ..." />
+        </div>
+        <div class="col-md-3 mt-2 d-flex align-items-center">
+            <div class="form-check form-switch mt-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="empActive" @bind="currentEmp.is_active" />
+                <label class="form-check-label fw-bold" for="empActive">Đang làm việc</label>
+            </div>
+        </div>
+        <div class="col-md-2 mt-2">
+            @if (isEditing)
+            {
+                <div class="d-flex gap-1">
+                    <button class="btn btn-success w-100" @onclick="SaveEmployee"><i class="bi bi-check-lg"></i></button>
+                    <button class="btn btn-secondary w-100" @onclick="CancelEdit"><i class="bi bi-x-lg"></i></button>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-primary w-100" @onclick="SaveEmployee"><i class="bi bi-plus-lg"></i> Thêm</button>
+            }
+        </div>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm d-inline-flex border">
+    <li class="nav-item">
+        <button class="nav-link @(filterStatus == "all" ? "active" : "") px-4 fw-bold" @onclick='() => SetFilter("all")'>TẤT CẢ</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(filterStatus == "active" ? "active" : "") px-4 fw-bold" @onclick='() => SetFilter("active")'>ĐANG LÀM</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link @(filterStatus == "inactive" ? "active" : "") px-4 fw-bold" @onclick='() => SetFilter("inactive")'>NGHỈ VIỆC</button>
+    </li>
+</ul>
+
+<table class="table table-bordered table-hover align-middle shadow-sm">
+    <thead class="table-primary text-center">
+        <tr>
+            <th style="width: 60px;">ID</th>
+            <th style="width: 20%;">Họ và Tên</th>
+            <th style="width: 15%;">Chức Vụ</th>
+            <th style="width: 15%;">Lương CB</th>
+            <th>Trạng Thái</th>
+            <th>Địa Chỉ</th>
+            <th style="width: 120px;">Thao Tác</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var e in PagedEmployees)
+        {
+            <tr>
+                <td class="text-center fw-bold text-secondary">@e.employee_id</td>
+                <td>
+                    <div class="fw-bold text-primary">@e.FullName</div>
+                    @if (e.account_id.HasValue)
+                    {
+                        <div class="small text-success"><i class="bi bi-link"></i> Acc: @e.account_id</div>
+                    }
+                    else
+                    {
+                        <button class="btn btn-sm btn-outline-success mt-1" @onclick="() => ShowCreateAccountModal(e)"><i class="bi bi-person-plus-fill"></i> Cấp tài khoản</button>
+                    }
+                    <div class="small text-muted mt-1 fst-italic">
+                        <i class="bi bi-telephone-fill me-1"></i> @(string.IsNullOrEmpty(e.phone) ? "Chưa có SDT" : e.phone)
+                    </div>
+                </td>
+                <td class="text-center"><span class="badge bg-dark">@e.role_name</span></td>
+                <td class="text-end fw-bold text-success">@e.monthly_salary.ToString("#,##0") đ</td>
+                <td class="text-center">
+                    <span class="badge @(e.is_active ? "bg-success" : "bg-danger")">
+                        @(e.is_active ? "Đang làm" : "Nghỉ việc")
+                    </span>
+                </td>
+                <td>@e.address</td>
+                <td class="text-center text-nowrap">
+                    <button class="btn btn-sm btn-warning me-2" @onclick="() => EditEmployee(e)"><i class="bi bi-pencil-square"></i></button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteEmployee(e)"><i class="bi bi-trash3-fill"></i></button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+<div class="d-flex justify-content-end align-items-center mt-3 bg-light p-2 rounded shadow-sm">
+    <div class="btn-group">
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = 1" disabled="@(currentPage == 1)">
+            <i class="bi bi-chevron-double-left"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage--" disabled="@(currentPage == 1)">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <span class="btn btn-sm btn-white disabled px-3">Trang @currentPage / @totalPages</span>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage++" disabled="@(currentPage >= totalPages)">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = totalPages" disabled="@(currentPage >= totalPages)">
+            <i class="bi bi-chevron-double-right"></i>
+        </button>
+    </div>
+</div>
+
+@if (isShowingAccountModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Cấp Tài Khoản cho @empToGrantAccount?.FullName</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseAccountModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(accountError))
+                    {
+                        <div class="alert alert-danger">@accountError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tên đăng nhập (Username)</label>
+                        <input @bind="newAccount.username" class="form-control" placeholder="Nhập username..." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Mật khẩu (Password)</label>
+                        <input @bind="newAccount.password" type="password" class="form-control" placeholder="Nhập mật khẩu..." />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseAccountModal">Hủy</button>
+                    <button class="btn btn-success" @onclick="CreateAndLinkAccount">Cấp & Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<EmployeeDisplay> employees = new();
+    private List<RoleDisplay> roles = new();
+    private string newRoleName = "";
+    private bool isAddingNewRole = false;
+    private EmployeeDisplay currentEmp = new();
+    private bool isEditing = false;
+    private int pageSize = 20;
+    private int currentPage = 1;
+    private string filterStatus = "active";
+    private int totalPages => Math.Max(1, (int)Math.Ceiling((double)FilteredEmployeesRaw.Count() / pageSize));
+    private IEnumerable<EmployeeDisplay> FilteredEmployeesRaw => employees.Where(e => {
+        if (filterStatus == "active") return e.is_active;
+        if (filterStatus == "inactive") return !e.is_active;
+        return true;
+    });
+    private IEnumerable<EmployeeDisplay> PagedEmployees => FilteredEmployeesRaw.Skip((currentPage - 1) * pageSize).Take(pageSize);
+
+    private void SetFilter(string status)
+    {
+        filterStatus = status;
+        currentPage = 1;
+    }
+
+    private void HandleRoleChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            currentEmp.role_id = id;
+        }
+    }
+    private void ToggleNewRoleInput()
+    {
+        isAddingNewRole = true;
+        newRoleName = "";
+    }
+    private void CancelAddNewRole()
+    {
+        isAddingNewRole = false;
+        newRoleName = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        roles = await Http.GetFromJsonAsync<List<RoleDisplay>>("/api/roles") ?? new();
+        await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var userJson = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "user");
+            if (string.IsNullOrEmpty(userJson) || (!userJson.Contains("Quản") && !userJson.Contains("Admin")))
+            {
+                Nav.NavigateTo("/");
+            }
+        }
+    }
+
+    private string FormattedSalary
+    {
+        get => currentEmp.monthly_salary == 0 ? "" : currentEmp.monthly_salary.ToString("#,##0").Replace(",", ".");
+        set
+        {
+            var stringValue = value.Replace(".", "").Replace(",", "");
+            if (decimal.TryParse(stringValue, out var val)) currentEmp.monthly_salary = val;
+            else currentEmp.monthly_salary = 0;
+        }
+    }
+
+    private async Task LoadData() => employees = await Http.GetFromJsonAsync<List<EmployeeDisplay>>("/api/employees") ?? new();
+
+    private async Task SaveEmployee()
+    {
+        try
+        {
+            if (isAddingNewRole && !string.IsNullOrWhiteSpace(newRoleName))
+            {
+                var roleResp = await Http.PostAsJsonAsync("/api/roles", new RoleDisplay { role_name = newRoleName });
+                if (roleResp.IsSuccessStatusCode)
+                {
+                    var createdRole = await roleResp.Content.ReadFromJsonAsync<RoleDisplay>();
+                    if (createdRole != null)
+                    {
+                        currentEmp.role_id = createdRole.role_id;
+                    }
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            if (currentEmp.role_id == 0 || string.IsNullOrWhiteSpace(currentEmp.first_name) || string.IsNullOrWhiteSpace(currentEmp.last_name))
+            {
+                return;
+            }
+
+            HttpResponseMessage response;
+            if (isEditing)
+            {
+                response = await Http.PutAsJsonAsync($"/api/employees/{currentEmp.employee_id}", currentEmp);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync("/api/employees", currentEmp);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                currentEmp = new();
+                isEditing = false;
+                isAddingNewRole = false;
+                newRoleName = "";
+                await LoadData();
+                roles = await Http.GetFromJsonAsync<List<RoleDisplay>>("/api/roles") ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving employee: {ex.Message}");
+        }
+    }
+
+    private void EditEmployee(EmployeeDisplay e)
+    {
+        currentEmp = new EmployeeDisplay { employee_id = e.employee_id, first_name = e.first_name, middle_name = e.middle_name, last_name = e.last_name, address = e.address, phone = e.phone, monthly_salary = e.monthly_salary, is_active = e.is_active, account_id = e.account_id, role_id = e.role_id };
+        isEditing = true;
+    }
+
+    private void CancelEdit() { currentEmp = new(); isEditing = false; }
+    private async Task DeleteEmployee(EmployeeDisplay e) { await Http.DeleteAsync($"/api/employees/{e.employee_id}"); await LoadData(); }
+
+    private bool isShowingAccountModal = false;
+    private EmployeeDisplay empToGrantAccount;
+    private AccountCreateRequest newAccount = new AccountCreateRequest();
+    private string accountError = "";
+
+    private void ShowCreateAccountModal(EmployeeDisplay e)
+    {
+        empToGrantAccount = e;
+        newAccount = new AccountCreateRequest();
+        accountError = "";
+        isShowingAccountModal = true;
+    }
+
+    private void CloseAccountModal()
+    {
+        isShowingAccountModal = false;
+        empToGrantAccount = null;
+    }
+
+    class AccountCreateResponse
+    {
+        public int account_id { get; set; }
+    }
+
+    private async Task CreateAndLinkAccount()
+    {
+        if (string.IsNullOrWhiteSpace(newAccount.username) || string.IsNullOrWhiteSpace(newAccount.password))
+        {
+            accountError = "Vui lòng nhập đầy đủ Username và Password!";
+            return;
+        }
+
+        try
+        {
+            var res = await Http.PostAsJsonAsync("/api/accounts", newAccount);
+            if (res.IsSuccessStatusCode)
+            {
+                var createdAcc = await res.Content.ReadFromJsonAsync<AccountCreateResponse>();
+                if (createdAcc != null)
+                {
+                    empToGrantAccount.account_id = createdAcc.account_id;
+                    var putRes = await Http.PutAsJsonAsync($"/api/employees/{empToGrantAccount.employee_id}", empToGrantAccount);
+                    
+                    if (putRes.IsSuccessStatusCode)
+                    {
+                        await LoadData();
+                        CloseAccountModal();
+                    }
+                    else
+                    {
+                        accountError = "Lỗi khi liên kết tài khoản vào nhân viên!";
+                    }
+                }
+            }
+            else
+            {
+                accountError = "Lỗi từ Database: Username có thể đã tồn tại!";
+            }
+        }
+        catch (Exception ex)
+        {
+            accountError = ex.Message;
+        }
+    }
+}
+

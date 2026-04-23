@@ -1,0 +1,310 @@
+@page "/customers"
+<PageTitle>Khách Hàng</PageTitle>
+@using PetShop.DTO
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<h3 class="text-primary mb-4">
+    <i class="bi bi-people-fill me-2"></i> QUẢN LÝ KHÁCH HÀNG
+</h3>
+
+<div class="card p-3 mb-4 shadow-sm bg-light">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Họ & Đệm</label>
+            <input @bind="currentCus.first_name" class="form-control" placeholder="VD: Nguyễn Văn" />
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Tên</label>
+            <input @bind="currentCus.last_name" class="form-control" placeholder="VD: A" />
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label fw-bold small">Số Điện Thoại</label>
+            <input @bind="currentCus.phone" class="form-control" placeholder="09xx..." />
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Địa Chỉ</label>
+            <input @bind="currentCus.address" class="form-control" placeholder="VD: 123 Cầu Giấy..." />
+        </div>
+
+        <div class="col-md-2">
+            @if (isEditing)
+            {
+                <div class="d-flex gap-1">
+                    <button class="btn btn-success w-100" @onclick="SaveCustomer" title="Lưu">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button class="btn btn-secondary w-100" @onclick="CancelEdit" title="Hủy">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-primary w-100" @onclick="SaveCustomer">
+                    <i class="bi bi-person-plus-fill"></i> Thêm
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-2 py-2 small">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+        </div>
+    }
+</div>
+
+<div class="input-group mb-3 w-100 d-flex justify-content-between align-items-center">
+    <div class="d-flex w-50">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input class="form-control" placeholder="Tìm theo tên hoặc số điện thoại..."
+               @bind="searchText" @bind:event="oninput" />
+    </div>
+    
+    @if (perfDynamic != null || perfStored != null)
+    {
+        <div class="d-flex gap-3 small">
+            <div class="badge bg-info text-dark p-2 border">
+                <i class="bi bi-cpu me-1"></i> @perfDynamic?.MethodName: <strong>@perfDynamic?.ExecutionTimeMs ms</strong>
+            </div>
+            <div class="badge @(perfStored?.ExecutionTimeMs == -1 ? "bg-secondary" : "bg-success") text-white p-2 border">
+                <i class="bi bi-database me-1"></i> @perfStored?.MethodName: 
+                <strong>@(perfStored?.ExecutionTimeMs == -1 ? "N/A" : perfStored?.ExecutionTimeMs + " ms")</strong>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="LoadPerformanceData" title="Làm mới so sánh">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+    }
+</div>
+
+<table class="table table-bordered table-hover align-middle shadow-sm">
+    <thead class="table-primary text-center">
+        <tr>
+            <th>ID</th>
+            <th>Họ và Tên</th>
+            <th>Số Điện Thoại</th>
+            <th>Tài Khoản Web</th>
+            <th class="text-center">Điểm Tích Lũy</th>
+            <th>Thao Tác</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var c in PagedCustomers)
+        {
+            <tr>
+                <td class="text-center fw-bold text-secondary">@c.customer_id</td>
+                <td>
+                    <div class="fw-bold text-primary">
+                        <i class="bi bi-person-circle text-secondary me-1"></i> @c.FullName
+                    </div>
+                    <div class="small text-muted">@c.address</div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-light text-dark border">
+                        <i class="bi bi-phone me-1"></i> @(string.IsNullOrEmpty(c.phone) ? "Chưa có" : c.phone)
+                    </span>
+                </td>
+                <td class="text-center">
+                    @if (c.account_id.HasValue)
+                    {
+                        <span class="badge bg-success">Đã liên kết (ID: @c.account_id)</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Khách vãng lai</span>
+                    }
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-warning text-dark fw-bold px-3 py-2">
+                        <i class="bi bi-star-fill me-1"></i> @c.reward_points.ToString("#,##0")
+                    </span>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning me-2" @onclick="() => EditCustomer(c)">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteCustomer(c)">
+                        <i class="bi bi-trash3-fill"></i>
+                    </button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+<div class="d-flex justify-content-end align-items-center mt-3 bg-light p-2 rounded shadow-sm">
+    <div class="btn-group">
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = 1" disabled="@(currentPage == 1)">
+            <i class="bi bi-chevron-double-left"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage--" disabled="@(currentPage == 1)">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <span class="btn btn-sm btn-white disabled px-3">Trang @currentPage / @totalPages</span>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage++" disabled="@(currentPage >= totalPages)">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary" @onclick="() => currentPage = totalPages" disabled="@(currentPage >= totalPages)">
+            <i class="bi bi-chevron-double-right"></i>
+        </button>
+    </div>
+</div>
+
+@code {
+    private List<CustomerDisplay> customers = new();
+    private CustomerDisplay currentCus = new();
+    private bool isEditing = false;
+    private string searchText = "";
+    private string apiUrl = "/api/customers";
+    private string errorMessage = "";
+
+    private int pageSize = 20;
+    private int currentPage = 1;
+    private int totalPages => Math.Max(1, (int)Math.Ceiling((double)FilteredCustomersRaw.Count() / pageSize));
+
+
+    private CustomerPerformanceResult? perfDynamic;
+    private CustomerPerformanceResult? perfStored;
+
+    public class CustomerPerformanceResult
+    {
+        public List<CustomerDisplay> Customers { get; set; } = new();
+        public long ExecutionTimeMs { get; set; }
+        public string MethodName { get; set; } = "";
+    }
+
+    public class PerformanceResponse
+    {
+        public CustomerPerformanceResult dynamic { get; set; } = new();
+        public CustomerPerformanceResult stored { get; set; } = new();
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        try
+        {
+            await LoadPerformanceData();
+
+            customers = perfDynamic?.Customers ?? new();
+        }
+        catch (Exception ex) { Console.WriteLine($"Lỗi load data: {ex.Message}"); }
+    }
+
+    private async Task LoadPerformanceData()
+    {
+        try 
+        {
+            var res = await Http.GetFromJsonAsync<PerformanceResponse>("/api/customers/performance");
+            if (res != null)
+            {
+                perfDynamic = res.dynamic;
+                perfStored = res.stored;
+                customers = perfDynamic.Customers;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Lỗi load performance: {ex.Message}"); }
+    }
+
+    private IEnumerable<CustomerDisplay> FilteredCustomersRaw => customers.Where(c =>
+        string.IsNullOrEmpty(searchText) ||
+        c.FullName.ToLower().Contains(searchText.ToLower()) ||
+        (c.phone != null && c.phone.Contains(searchText))
+    );
+
+    private IEnumerable<CustomerDisplay> PagedCustomers => FilteredCustomersRaw
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize);
+
+    private async Task SaveCustomer()
+    {
+        errorMessage = "";
+        if (string.IsNullOrEmpty(currentCus.first_name) || string.IsNullOrEmpty(currentCus.last_name))
+        {
+            errorMessage = "Vui lòng nhập đầy đủ Họ và Tên khách hàng!";
+            return;
+        }
+
+        try
+        {
+            HttpResponseMessage response;
+            if (isEditing)
+                response = await Http.PutAsJsonAsync($"{apiUrl}/{currentCus.customer_id}", currentCus);
+            else
+            {
+                response = await Http.PostAsJsonAsync(apiUrl, currentCus);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                currentCus = new();
+                isEditing = false;
+                await LoadData();
+            }
+            else
+            {
+                var errorText = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Không thể lưu khách hàng: {errorText}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi kết nối: {ex.Message}";
+        }
+    }
+
+    private void EditCustomer(CustomerDisplay c)
+    {
+        currentCus = new CustomerDisplay
+            {
+                customer_id = c.customer_id,
+                first_name = c.first_name,
+                last_name = c.last_name,
+                phone = c.phone,
+                address = c.address,
+                account_id = c.account_id
+            };
+        isEditing = true;
+    }
+
+    private void CancelEdit()
+    {
+        currentCus = new();
+        isEditing = false;
+    }
+
+    private async Task DeleteCustomer(CustomerDisplay c)
+    {
+        errorMessage = "";
+        bool confirm = await JS.InvokeAsync<bool>("confirm", $"Bạn có chắc muốn xóa khách hàng {c.FullName}? Mọi dữ liệu liên quan (Thú cưng) cũng sẽ bị xóa.");
+        if (!confirm) return;
+
+        try 
+        {
+            var res = await Http.DeleteAsync($"{apiUrl}/{c.customer_id}");
+            if (res.IsSuccessStatusCode)
+            {
+                await LoadData();
+            }
+            else
+            {
+                errorMessage = "Không thể xóa khách hàng. Có thể khách hàng này đang có dữ liệu hóa đơn hoặc lịch hẹn không thể xóa.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi xóa: {ex.Message}";
+        }
+    }
+}
+

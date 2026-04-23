@@ -1,0 +1,204 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject HttpClient Http
+@using System.Text.Json
+
+<div class="page">
+    @if (isLoggedIn && !IsPortalPath())
+    {
+        <div class="sidebar shadow @(isSidebarOpen ? "" : "collapsed")">
+            <NavMenu UserRole="@currentUserRole" />
+        </div>
+    }
+
+    <main class="@(isSidebarOpen && isLoggedIn && !IsPortalPath() ? "" : "expanded")">
+        @if (isLoggedIn && !IsPortalPath())
+        {
+            <div class="top-row px-3 shadow-sm bg-white border-bottom d-flex align-items-center">
+                <button class="btn btn-sm btn-light border-0 shadow-sm rounded-pill px-3 me-3" @onclick="ToggleSidebar">
+                    <i class="bi @(isSidebarOpen ? "bi-chevron-left" : "bi-list") fs-5"></i>
+                </button>
+
+                <div class="flex-grow-1">
+                    @if (!isSidebarOpen)
+                    {
+                        <span class="text-primary fw-bold animate-fade-in"><i class="bi bi-house-heart-fill me-1"></i> PET SHOP</span>
+                    }
+                </div>
+
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        @if (isShiftActive)
+                        {
+                            <a href="/checkin" class="btn btn-sm btn-outline-success rounded-pill px-3 py-2 me-2">
+                                <i class="bi bi-qr-code-scan me-1"></i> Kết thúc ca
+                            </a>
+                            <span class="badge bg-success rounded-pill px-3 py-2 me-2">
+                                <i class="bi bi-clock-fill me-1"></i> <span>Đang trong ca</span>
+                            </span>
+                        }
+                        else if (currentUserRoleId != 1)
+                        {
+                            <span class="badge bg-danger rounded-pill px-3 py-2 me-2">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> <span>Chưa vào ca</span>
+                            </span>
+                        }
+                        <span class="badge bg-soft-primary text-primary border border-primary px-3 py-2">
+                            <i class="bi bi-person-badge-fill me-1"></i>
+                            <strong>@currentUserName</strong>
+                        </span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3" @onclick="Logout">
+                        <i class="bi bi-box-arrow-right me-1"></i> Đăng xuất
+                    </button>
+                </div>
+            </div>
+        }
+
+        <article class="content px-4 py-3">
+            @if (isChecking && !IsLoginPath())
+            {
+                <div class="d-flex flex-column justify-content-center align-items-center" style="height: 60vh;">
+                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted fw-bold">Đang kiểm tra quyền truy cập...</p>
+                </div>
+            }
+            else
+            {
+                @if (isLoggedIn && !isShiftActive && !IsLoginPath() && !IsPortalPath() && !IsCheckInPath() && currentUserRoleId != 1 && !currentUserRole.Equals("Manager", StringComparison.OrdinalIgnoreCase) && !currentUserRole.Equals("Qu\u1EA3n l\u00FD", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="d-flex flex-column align-items-center justify-content-center mt-5 animate-fade-in">
+                        <div class="card shadow border-0 rounded-4 text-center p-5" style="max-width: 500px; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);">
+                            <div class="card-body">
+                                <div class="bg-soft-danger rounded-circle d-inline-flex p-4 mb-4">
+                                    <i class="bi bi-geo-alt-fill text-danger display-4"></i>
+                                </div>
+                                <h2 class="fw-bold mb-3 text-dark">YÊU CẦU ĐIỂM DANH</h2>
+                                <p class="text-muted mb-4 fs-5"><span>Hệ thống ghi nhận bạn chưa bắt đầu ca làm việc. Vui lòng quét mã QR tại quầy để mở khóa chức năng.</span></p>
+                                <a href="/checkin" class="btn btn-primary btn-lg rounded-pill w-100 shadow-sm py-3 fw-bold">
+                                    <i class="bi bi-qr-code-scan me-2"></i> ĐI ĐẾN TRANG QUÉT MÃ
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @Body
+                }
+            }
+        </article>
+    </main>
+</div>
+
+@code {
+    private bool isLoggedIn = false;
+    private bool isChecking = true;
+    private bool isSidebarOpen = true;
+    private bool isShiftActive = false;
+    private int currentEmployeeId = 0;
+    private int currentUserRoleId = 0;
+    private string currentUserName = "User";
+    private string currentUserRole = "";
+
+    private void ToggleSidebar() => isSidebarOpen = !isSidebarOpen;
+
+    private bool IsLoginPath() => Nav.ToBaseRelativePath(Nav.Uri).ToLower().StartsWith("login");
+    private bool IsPortalPath() => Nav.ToBaseRelativePath(Nav.Uri).ToLower().StartsWith("portal");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await Task.Delay(100); 
+
+                var userJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+                if (string.IsNullOrEmpty(userJson))
+                {
+                    isLoggedIn = false;
+                    if (!IsLoginPath())
+                    {
+                        Nav.NavigateTo("/login");
+                    }
+                }
+                else
+                {
+                    isLoggedIn = true;
+                    try
+                    {
+                        using var userDoc = System.Text.Json.JsonDocument.Parse(userJson);
+                        if (userDoc.RootElement.TryGetProperty("username", out var usernameProp))
+                        {
+                            currentUserName = usernameProp.GetString() ?? "User";
+                        }
+                        if (userDoc.RootElement.TryGetProperty("role_id", out var roleIdProp))
+                        {
+                            if (roleIdProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                                currentUserRoleId = roleIdProp.GetInt32();
+                            else if (roleIdProp.ValueKind == System.Text.Json.JsonValueKind.String && int.TryParse(roleIdProp.GetString(), out int rid))
+                                currentUserRoleId = rid;
+                        }
+                        if (userDoc.RootElement.TryGetProperty("role", out var roleProp))
+                        {
+                            currentUserRole = roleProp.GetString() ?? "";
+                        }
+                        if (userDoc.RootElement.TryGetProperty("employee_id", out var empIdProp))
+                        {
+                            var empId = empIdProp.GetInt32();
+                            currentEmployeeId = empId;
+
+                            var activeResponse = await Http.GetAsync($"/api/workshifts/active/{empId}");
+                            if (activeResponse.IsSuccessStatusCode)
+                            {
+                                isShiftActive = await activeResponse.Content.ReadFromJsonAsync<bool>();
+                            }
+
+                            bool isManager = userJson.Contains("Qu\u1EA3n l\u00FD", StringComparison.OrdinalIgnoreCase) || userJson.Contains("Manager", StringComparison.OrdinalIgnoreCase);
+
+                            if (!isShiftActive && 
+                                !IsLoginPath() && 
+                                !IsPortalPath() &&
+                                !IsCheckInPath() && 
+                                !isManager)
+                            {
+                                Nav.NavigateTo("/checkin", true);
+                                return;
+                            }
+                        }
+                    }
+                    catch (Exception ex) { Console.WriteLine($"CheckIn Redirect Error: {ex.Message}"); }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Auth Check Error: {ex.Message}");
+                isLoggedIn = false;
+                if (!IsLoginPath()) Nav.NavigateTo("/login");
+            }
+            finally
+            {
+                isChecking = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private bool IsCheckInPath() => Nav.Uri.ToLower().Contains("/checkin");
+
+    private async Task Logout()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("sessionStorage.removeItem", "user");
+        }
+        catch { }
+        
+        isLoggedIn = false;
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

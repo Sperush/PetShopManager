@@ -1,0 +1,258 @@
+@page "/booking-details/{id:int}"
+<PageTitle>Chi Tiết Lịch Hẹn</PageTitle>
+@using PetShop.DTO
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="container mt-4">
+    <button class="btn btn-outline-secondary mb-3" @onclick="GoBack">
+        <i class="bi bi-arrow-left"></i> Quay lại danh sách
+    </button>
+
+    @if (appt == null)
+    {
+        <div class="text-center"><div class="spinner-border"></div> Đang tải thông tin lịch hẹn...</div>
+    }
+    else
+    {
+        <div class="card shadow border-0">
+            <div class="card-header @(appt.payment_status == "Completed" ? "bg-success" : (appt.appointment_status == "Cancelled" ? "bg-danger" : "bg-primary")) text-white d-flex justify-content-between align-items-center py-3">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-calendar-check"></i> CHI TIẾT LỊCH HẸN #@appt.appointment_id</h4>
+                <div class="d-flex gap-2">
+                    @if (appt.payment_status != "Completed" && appt.appointment_status != "Cancelled")
+                    {
+                        <button class="btn btn-light text-success fw-bold px-4" @onclick="OpenPaymentSelector">
+                            <i class="bi bi-wallet2 me-1"></i> Thanh toán
+                        </button>
+                    }
+                    <div class="badge bg-light text-dark fw-bold px-3 py-2 d-flex align-items-center">
+                        Trạng thái: @GetStatusText(appt.appointment_status)
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="text-primary border-bottom pb-2"><i class="bi bi-person"></i> Thông Tin Khách Hàng</h5>
+                        <p class="mb-1"><strong>Họ tên:</strong> @appt.customer_name <span class="text-muted small">(ID: @appt.customer_id)</span></p>
+                        <p class="mb-1"><strong>Địa chỉ:</strong> @appt.customer_address</p>
+                        <div class="mt-3">
+                            <h5 class="text-primary border-bottom pb-2"><i class="bi bi-heart"></i> Thông Tin Thú Cưng</h5>
+                            <p class="mb-1"><strong>Thú cưng:</strong> @appt.pet_info</p>
+                            <p class="mb-1"><strong>Cân nặng:</strong> @(appt.pet_weight?.ToString() ?? "N/A") kg</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <h5 class="text-primary border-bottom pb-2"><i class="bi bi-clock"></i> Thông Tin Thời Gian</h5>
+                        <p class="mb-1"><strong>Thời gian hẹn:</strong> @appt.appointment_time.ToString("dd/MM/yyyy HH:mm")</p>
+                        <p class="mb-1"><strong>Ngày đặt lịch:</strong> @appt.booking_time.ToString("dd/MM/yyyy HH:mm")</p>
+                        <div class="mt-3">
+                            <h5 class="text-primary border-bottom pb-2"><i class="bi bi-credit-card"></i> Thanh Toán</h5>
+                            <p class="mb-1">
+                                <strong>Trạng thái:</strong>
+                                @if (appt.payment_status == "Completed")
+                                {
+                                    <span class="badge bg-success">Đã thanh toán</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">Chờ thanh toán</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="text-primary border-bottom pb-2"><i class="bi bi-list-check"></i> Danh Sách Dịch Vụ</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Dịch Vụ</th>
+                                <th>Nhân Viên Thực Hiện</th>
+                                <th class="text-end">Đơn Giá</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (appt.Details != null)
+                            {
+                                @foreach (var item in appt.Details)
+                                {
+                                    <tr>
+                                        <td><div class="fw-bold text-dark">@item.service_name</div></td>
+                                        <td>@item.detail_employee_name</td>
+                                        <td class="text-end fw-bold">@item.price_at_booking.ToString("#,##0") đ</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="2" class="text-end fw-bold">TỔNG CỘNG:</td>
+                                <td class="text-end fw-bold text-danger fs-5">
+                                    @appt.total_amount.ToString("#,##0") đ
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white text-center text-muted small">
+                Vui lòng có mặt đúng giờ để được phục vụ tốt nhất.
+            </div>
+        </div>
+    }
+</div>
+
+@if (isShowingPaymentSelectorModal && appt != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i> CHỌN HÌNH THỨC THANH TOÁN</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => isShowingPaymentSelectorModal = false"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="text-center mb-4">
+                        <div class="text-muted small text-uppercase fw-bold">Tổng tiền cần thanh toán</div>
+                        <div class="display-5 fw-bold text-danger">@appt.total_amount.ToString("#,##0") <small>đ</small></div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(selectedPaymentMethod == "Tiền mặt" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => selectedPaymentMethod = "Tiền mặt"'>
+                                <i class="bi bi-cash-stack display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Tiền mặt</span>
+                            </button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(selectedPaymentMethod == "Chuyển khoản" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => selectedPaymentMethod = "Chuyển khoản"'>
+                                <i class="bi bi-qr-code display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Chuyển khoản</span>
+                            </button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn w-100 py-3 border-2 @(selectedPaymentMethod == "Quẹt thẻ" ? "btn-primary border-primary shadow-sm" : "btn-outline-secondary")"
+                                    @onclick='() => selectedPaymentMethod = "Quẹt thẻ"'>
+                                <i class="bi bi-credit-card display-6 d-block mb-2"></i>
+                                <span class="small fw-bold">Quẹt thẻ</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (selectedPaymentMethod == "Chuyển khoản")
+                    {
+                        <div class="card border-0 shadow-sm rounded-4 text-center p-3 bg-white">
+                            @if (!string.IsNullOrEmpty(bankId) && !string.IsNullOrEmpty(accountNo))
+                            {
+                                <div class="mb-2 small text-muted text-uppercase fw-bold">Quét mã để thanh toán</div>
+                                <img src="@(GetVietQRUrl(appt.total_amount))" class="img-fluid rounded-3 mb-2 shadow-sm" style="max-height: 250px;" />
+                                <div class="fw-bold text-primary">@accountName</div>
+                                <div class="small">@bankId - @accountNo</div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-warning py-2 small mb-0">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i> Chưa cấu hình thông tin ngân hàng!
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-0 p-3 bg-white text-end">
+                    <button class="btn btn-secondary rounded-3 px-4" @onclick="() => isShowingPaymentSelectorModal = false">Quay lại</button>
+                    <button class="btn btn-primary rounded-3 px-5 fw-bold" @onclick="ConfirmPaymentAction">XÁC NHẬN THANH TOÁN</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private AppointmentDisplay? appt;
+
+    private bool isShowingPaymentSelectorModal = false;
+    private string selectedPaymentMethod = "Tiền mặt";
+    private string bankId = "";
+    private string accountNo = "";
+    private string accountName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            appt = await Http.GetFromJsonAsync<AppointmentDisplay>($"/api/appointments/{Id}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi: {ex.Message}");
+        }
+    }
+
+    private void GoBack() => Nav.NavigateTo("/appointments");
+
+    private async Task OpenPaymentSelector()
+    {
+        if (appt == null) return;
+        bankId = (await Http.GetStringAsync("/api/settings/bank_id"))?.Trim('"') ?? "";
+        accountNo = (await Http.GetStringAsync("/api/settings/account_no"))?.Trim('"') ?? "";
+        accountName = (await Http.GetStringAsync("/api/settings/account_name"))?.Trim('"') ?? "";
+        isShowingPaymentSelectorModal = true;
+    }
+
+    private string GetVietQRUrl(decimal amount)
+    {
+        if (string.IsNullOrEmpty(bankId) || string.IsNullOrEmpty(accountNo)) return "";
+        var description = $"Thanh toan lich hen {Id}";
+        return $"https://img.vietqr.io/image/{bankId}-{accountNo}-compact2.png?amount={amount}&addInfo={Uri.EscapeDataString(description)}&accountName={Uri.EscapeDataString(accountName)}";
+    }
+
+    private async Task ConfirmPaymentAction()
+    {
+        if (appt == null) return;
+
+        var res = await Http.PostAsync($"/api/appointments/{appt.appointment_id}/payment?status=Completed", null);
+
+        if (res.IsSuccessStatusCode)
+        {
+            if (selectedPaymentMethod == "Chuyển khoản")
+            {
+                var payRes = await Http.PostAsJsonAsync("/api/payment/create", new
+                {
+                    OrderCode = (long)appt.appointment_id,
+                    Amount = (int)appt.total_amount,
+                    Description = $"Lich hen #{appt.appointment_id}"
+                });
+
+                if (payRes.IsSuccessStatusCode)
+                {
+                    var payData = await payRes.Content.ReadFromJsonAsync<PayOSLinkResponse>();
+                    if (!string.IsNullOrEmpty(payData?.checkoutUrl))
+                    {
+                        await JS.InvokeVoidAsync("open", payData.checkoutUrl, "_blank");
+                    }
+                }
+            }
+
+            isShowingPaymentSelectorModal = false;
+            appt = await Http.GetFromJsonAsync<AppointmentDisplay>($"/api/appointments/{Id}");
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusText(string status) => status switch
+    {
+        "Scheduled" => "Đã đặt lịch",
+        "In Progress" => "Đang thực hiện",
+        "Completed" => "Hoàn thành",
+        "Cancelled" => "Hủy hẹn",
+        _ => status
+    };
+
+    public class PayOSLinkResponse { public string checkoutUrl { get; set; } }
+}

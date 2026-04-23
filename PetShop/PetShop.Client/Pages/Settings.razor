@@ -1,0 +1,253 @@
+@page "/settings"
+@using PetShop.DTO
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject PetShop.Services.WorkShiftService WorkShiftService
+
+<PageTitle>Cấu hình hệ thống</PageTitle>
+
+<div class="container py-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <h3 class="text-primary mb-4 fw-bold">
+                <i class="bi bi-gear-fill me-2"></i> CÀI ĐẶT HỆ THỐNG
+            </h3>
+
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Đang kiểm tra quyền truy cập...</p>
+                </div>
+            }
+            else if (currentUserRoleId != 1)
+            {
+                <div class="alert alert-danger shadow-sm rounded-4 p-4 animate-fade-in">
+                    <i class="bi bi-exclamation-octagon display-4 mb-3 d-block"></i>
+                    <h4>TRUY CẬP BỊ TỪ CHỐI</h4>
+                    <p>Chỉ Quản lý mới có quyền truy cập vào trang cấu hình này.</p>
+                </div>
+            }
+            else
+            {
+                <div class="card shadow border-0 rounded-4 mb-4 overflow-hidden">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-qr-code me-2"></i> Quản lý Mã Điểm Danh (Check-in QR)</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-7">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Mã bí mật hiện tại</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-lg bg-light" @bind="newSecret" placeholder="Nhập mã bí mật mới..." />
+                                        <button class="btn btn-primary px-4" @onclick="UpdateSecret">Lưu thay đổi</button>
+                                    </div>
+                                    <div class="form-text mt-2">Mã này dùng để tạo mã QR dán tại quầy. Nhân viên phải quét mã này mới có thể vào ca.</div>
+                                </div>
+
+
+                            </div>
+                            <div class="col-md-5 text-center border-start">
+                                <div class="p-3 bg-white d-inline-block rounded-4 shadow-sm mb-3">
+                                    <img src="@qrImageUrl" alt="QR Code" style="width: 200px; height: 200px;" id="qr-image" />
+                                </div>
+                                <div>
+                                    <button class="btn btn-outline-primary rounded-pill px-4" @onclick="PrintQR">
+                                        <i class="bi bi-printer me-2"></i> In mã QR này
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow border-0 rounded-4 mb-4 overflow-hidden">
+                    <div class="card-header bg-dark text-white py-3">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-lightning-charge-fill me-2"></i> Tự động hóa thanh toán (PayOS)</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="alert alert-info py-2 small">
+                            <i class="bi bi-info-circle-fill me-2"></i> Đăng ký tài khoản miễn phí tại <a href="https://payos.vn" target="_blank" class="fw-bold">payos.vn</a> để lấy các thông tin dưới đây.
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Client ID</label>
+                                <input type="text" class="form-control" @bind="payosClientId" placeholder="Nhập Client ID..." />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">API Key</label>
+                                <input type="password" class="form-control" @bind="payosApiKey" placeholder="Nhập API Key..." />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Checksum Key</label>
+                                <input type="password" class="form-control" @bind="payosChecksumKey" placeholder="Nhập Checksum Key..." />
+                            </div>
+                            <div class="col-12">
+                                <button class="btn btn-dark px-4" @onclick="SavePayOSSettings">
+                                    <i class="bi bi-shield-lock-fill me-2"></i> Kết nối PayOS
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow border-0 rounded-4 mb-4 overflow-hidden">
+                    <div class="card-header bg-success text-white py-3">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-bank me-2"></i> Cấu hình Ngân hàng (Để tạo mã QR thanh toán)</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Ngân hàng (Ví dụ: VCB, MB, ICB...)</label>
+                                <input type="text" class="form-control" @bind="bankId" placeholder="Mã ngân hàng..." />
+                                <div class="form-text small">Mã BIN ngân hàng (VD: VCB, MB, TCB...)</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Số tài khoản</label>
+                                <input type="text" class="form-control" @bind="accountNo" placeholder="Nhập STK..." />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Tên chủ tài khoản</label>
+                                <input type="text" class="form-control" @bind="accountName" placeholder="TÊN KHÔNG DẤU..." />
+                            </div>
+                            <div class="col-12">
+                                <button class="btn btn-success px-4" @onclick="SaveBankSettings">
+                                    <i class="bi bi-save me-2"></i> Lưu cấu hình ngân hàng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow border-0 rounded-4">
+                    <div class="card-header bg-dark text-white py-3">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-info-circle me-2"></i> Hướng dẫn</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <ol class="mb-0">
+                            <li class="mb-2">Nhập mã bí mật của cửa hàng bạn vào ô trên (Ví dụ: <code>PETSHOP_2026_HN</code>).</li>
+                            <li class="mb-2">Nhấn <strong>Lưu thay đổi</strong> để tạo mã QR điểm danh.</li>
+                            <li class="mb-2">Nhập thông tin Ngân hàng để hệ thống tự tạo mã QR thanh toán (VietQR) trong hóa đơn.</li>
+                            <li>Yêu cầu nhân viên quét mã QR điểm danh để bắt đầu ca làm việc.</li>
+                        </ol>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(successMsg))
+{
+    <div class="position-fixed bottom-0 end-0 m-4 animate-fade-in" style="z-index: 2000;">
+        <div class="alert alert-success shadow-lg border-0 rounded-4 px-4 py-3 d-flex align-items-center">
+            <i class="bi bi-check-circle-fill fs-4 me-3"></i>
+            <div>
+                <div class="fw-bold text-dark">Thành công!</div>
+                <div class="small text-muted">@successMsg</div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private string newSecret = "";
+    private string payosClientId = "";
+    private string payosApiKey = "";
+    private string payosChecksumKey = "";
+    private string bankId = "";
+    private string accountNo = "";
+    private string accountName = "";
+    private string qrImageUrl = "";
+    private string? successMsg;
+    private int currentUserRoleId = 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var userJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "user");
+            if (!string.IsNullOrEmpty(userJson))
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(userJson);
+                if (doc.RootElement.TryGetProperty("role_id", out var idProp))
+                {
+                    currentUserRoleId = idProp.GetInt32();
+                }
+            }
+
+            if (currentUserRoleId == 1)
+            {
+                newSecret = await WorkShiftService.GetQRSecretAsync();
+                
+                payosClientId = (await Http.GetStringAsync($"/api/settings/payos_client_id"))?.Trim('"') ?? "";
+                payosApiKey = (await Http.GetStringAsync($"/api/settings/payos_api_key"))?.Trim('"') ?? "";
+                payosChecksumKey = (await Http.GetStringAsync($"/api/settings/payos_checksum_key"))?.Trim('"') ?? "";
+
+                bankId = (await Http.GetStringAsync($"/api/settings/bank_id"))?.Trim('"') ?? "";
+                accountNo = (await Http.GetStringAsync($"/api/settings/account_no"))?.Trim('"') ?? "";
+                accountName = (await Http.GetStringAsync($"/api/settings/account_name"))?.Trim('"') ?? "";
+                
+                GenerateQRUrl();
+            }
+            
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GenerateQRUrl()
+    {
+
+        var todayStr = DateTime.Now.ToString("yyyyMMdd");
+        var fullSecret = newSecret + todayStr;
+        
+        qrImageUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={Uri.EscapeDataString(fullSecret)}";
+    }
+
+    private async Task ShowSuccess(string msg)
+    {
+        successMsg = msg;
+        StateHasChanged();
+        await Task.Delay(3000);
+        if (successMsg == msg)
+        {
+            successMsg = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateSecret()
+    {
+        if (string.IsNullOrWhiteSpace(newSecret)) return;
+
+        await WorkShiftService.SetQRSecretAsync(newSecret);
+        GenerateQRUrl();
+        await ShowSuccess("Đã cập nhật mã bí mật và mã QR mới thành công!");
+    }
+
+    private async Task SavePayOSSettings()
+    {
+        await Http.PostAsJsonAsync($"/api/settings/payos_client_id", payosClientId);
+        await Http.PostAsJsonAsync($"/api/settings/payos_api_key", payosApiKey);
+        await Http.PostAsJsonAsync($"/api/settings/payos_checksum_key", payosChecksumKey);
+        await ShowSuccess("Đã lưu cấu hình PayOS thành công!");
+    }
+
+    private async Task SaveBankSettings()
+    {
+        await Http.PostAsJsonAsync($"/api/settings/bank_id", bankId);
+        await Http.PostAsJsonAsync($"/api/settings/account_no", accountNo);
+        await Http.PostAsJsonAsync($"/api/settings/account_name", accountName);
+        await ShowSuccess("Đã lưu cấu hình ngân hàng thành công!");
+    }
+
+    private async Task PrintQR()
+    {
+        await JS.InvokeVoidAsync("shiftHelper.printQR", qrImageUrl, newSecret);
+    }
+}
+
