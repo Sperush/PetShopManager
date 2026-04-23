@@ -121,7 +121,7 @@
                 if (string.IsNullOrEmpty(userJson))
                 {
                     isLoggedIn = false;
-                    if (!IsLoginPath())
+                    if (!IsLoginPath() && !IsPortalPath())
                     {
                         Nav.NavigateTo("/login");
                     }
