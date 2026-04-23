@@ -93,7 +93,7 @@
         if (firstRender)
         {
             var userJson = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "user");
-            if (string.IsNullOrEmpty(userJson) || (!userJson.Contains("Quản") && !userJson.Contains("Admin")))
+            if (string.IsNullOrEmpty(userJson) || (!userJson.Contains("Quản") && !userJson.Contains("Admin") && !userJson.Contains("Manager")))
             {
                 Nav.NavigateTo("/");
             }

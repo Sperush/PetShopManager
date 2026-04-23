@@ -86,6 +86,6 @@
     [Parameter]
     public string UserRole { get; set; } = "";
 
-    private bool IsAdmin => UserRole.Contains("Quản") || UserRole.Contains("Admin");
+    private bool IsAdmin => UserRole.Contains("Quản") || UserRole.Contains("Admin") || UserRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
 }
 
