@@ -202,7 +202,7 @@
         CustomerCount = customers?.Count ?? 0;
 
 
-        PendingCount = appointments?.Count(a => a.appointment_status == "Scheduled" || a.appointment_status == "In Progress") ?? 0;
+        PendingCount = appointments?.Count(a => a.appointment_status == "Confirmed" || a.appointment_status == "In Progress") ?? 0;
 
         TotalRevenue = orders?.Where(o => o.payment_status == "Completed" || o.payment_status == "Đã thanh toán")
                              .Sum(o => o.total_amount) ?? 0;

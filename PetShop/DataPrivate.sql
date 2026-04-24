@@ -49,9 +49,9 @@ INSERT INTO ORDER_DETAIL (quantity, price_at_purchase, order_id, product_id) VAL
 INSERT INTO APPOINTMENT (appointment_time, appointment_status, payment_status, pet_id) VALUES 
 (GETDATE(), 'Confirmed', 'Pending', 1), (GETDATE(), 'Completed', 'Completed', 2),
 (GETDATE(), 'Confirmed', 'Pending', 3), (GETDATE(), 'Cancelled', 'Pending', 4),
-(GETDATE(), 'Confirmed', 'Completed', 5), (GETDATE(), 'Pending', 'Pending', 6),
+(GETDATE(), 'Confirmed', 'Completed', 5), (GETDATE(), 'Confirmed', 'Pending', 6),
 (GETDATE(), 'Confirmed', 'Pending', 7), (GETDATE(), 'Completed', 'Completed', 8),
-(GETDATE(), 'Confirmed', 'Pending', 9), (GETDATE(), 'Pending', 'Pending', 10);
+(GETDATE(), 'Confirmed', 'Pending', 9), (GETDATE(), 'Confirmed', 'Pending', 10);
 -- 12. APPOINTMENT_DETAIL
 INSERT INTO APPOINTMENT_DETAIL (price_at_booking, appointment_id, employee_id, service_id) VALUES 
 (150000, 1, 5, 1), (300000, 2, 6, 2), (70000, 3, 5, 3), (450000, 4, 6, 4), (600000, 5, 5, 5),

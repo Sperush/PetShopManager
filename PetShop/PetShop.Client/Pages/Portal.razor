@@ -584,7 +584,7 @@
     private int TotalPages => (int)Math.Ceiling((double)(customerAppointments?.Count ?? 0) / pageSize);
 
     private string GetStatusClass(string s) => s switch {
-        "Scheduled" => "bg-primary text-white",
+        "Confirmed" => "bg-primary text-white",
         "In Progress" => "bg-info text-dark",
         "Completed" => "bg-success text-white",
         "Cancelled" => "bg-danger text-white",
@@ -592,7 +592,7 @@
     };
 
     private string GetStatusText(string s) => s switch {
-        "Scheduled" => "Đã đặt",
+        "Confirmed" => "Đã đặt lịch",
         "In Progress" => "Đang làm",
         "Completed" => "Xong",
         "Cancelled" => "Hủy",

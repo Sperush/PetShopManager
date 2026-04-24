@@ -19,7 +19,7 @@
             <button class="nav-link @(filterStatus == "All" ? "active" : "")" @onclick='() => filterStatus = "All"'>Tất cả</button>
         </li>
         <li class="nav-item">
-            <button class="nav-link @(filterStatus == "Scheduled" ? "active" : "")" @onclick='() => filterStatus = "Scheduled"'>Đã đặt lịch</button>
+            <button class="nav-link @(filterStatus == "Confirmed" ? "active" : "")" @onclick='() => filterStatus = "Confirmed"'>Đã đặt lịch</button>
         </li>
         <li class="nav-item">
             <button class="nav-link @(filterStatus == "In Progress" ? "active" : "")" @onclick='() => filterStatus = "In Progress"'>Đang thực hiện</button>
@@ -98,7 +98,7 @@
                                 <td class="text-center">
                                     <select class="form-select form-select-sm" value="@item.appointment_status" @onchange="(e) => UpdateApptStatus(item, e.Value?.ToString())"
                                             disabled="@(item.payment_status != "Completed")">
-                                        <option value="Scheduled">Đã đặt lịch</option>
+                                        <option value="Confirmed">Đã đặt lịch</option>
                                         <option value="In Progress">Đang thực hiện</option>
                                         <option value="Completed">Hoàn thành</option>
                                         <option value="Cancelled">Hủy hẹn</option>
@@ -275,7 +275,7 @@
                                             <div class="col-12 mt-2">
                                                 <label class="form-label small text-muted">Trạng thái lịch hẹn</label>
                                                 <select @bind="apptModel.appointment_status" class="form-select" disabled="@(apptModel.payment_status != "Completed")">
-                                                    <option value="Scheduled">Đã đặt lịch</option>
+                                                    <option value="Confirmed">Đã đặt lịch</option>
                                                     <option value="In Progress">Đang thực hiện</option>
                                                     <option value="Completed">Hoàn thành</option>
                                                     <option value="Cancelled">Hủy hẹn</option>
@@ -518,7 +518,7 @@
 
     private int GetStatusWeight(string status) => status switch
     {
-        "Scheduled" => 1,
+        "Confirmed" => 1,
         "In Progress" => 2,
         "Completed" => 3,
         "Cancelled" => 4,

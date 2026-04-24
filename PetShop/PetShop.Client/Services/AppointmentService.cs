@@ -192,7 +192,7 @@ namespace PetShop.Services
 
                         string sqlAppt = @"
                             INSERT INTO APPOINTMENT (pet_id, appointment_time, booking_time, appointment_status, payment_status, used_reward_points)
-                            VALUES (@pet_id, @appointment_time, SYSDATETIMEOFFSET(), 'Scheduled', @payment_status, @used_reward_points);
+                            VALUES (@pet_id, @appointment_time, SYSDATETIMEOFFSET(), 'Confirmed', @payment_status, @used_reward_points);
                             SELECT CAST(SCOPE_IDENTITY() as int);";
                         
                         int apptId = await db.QuerySingleAsync<int>(sqlAppt, new { req.pet_id, req.appointment_time, req.payment_status, used_reward_points = usedPoints }, trans);
