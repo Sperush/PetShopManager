@@ -189,13 +189,17 @@ else
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        @if (c.appointment_id.HasValue)
+                                        @if (c.appointment_id.HasValue && c.appointment_id > 0)
                                         {
                                             <a href="/booking-details/@c.appointment_id" class="btn btn-sm btn-outline-primary rounded-pill px-3">#LH-@c.appointment_id</a>
                                         }
-                                        else if (c.order_id.HasValue)
+                                        else if (c.order_id.HasValue && c.order_id > 0)
                                         {
                                             <a href="/order-details/@c.order_id" class="btn btn-sm btn-outline-success rounded-pill px-3">#HĐ-@c.order_id</a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">N/A</span>
                                         }
                                     </td>
                                     <td class="text-center text-muted small">@c.recorded_time.ToString("dd/MM/yyyy HH:mm")</td>

@@ -16,8 +16,8 @@ namespace PetShop.Services
             string sql = @"
                 SELECT 
                     c.*,
-                    COALESCE(ad.appointment_id, 0) AS appointment_id,
-                    COALESCE(od.order_id, 0) AS order_id,
+                    ad.appointment_id,
+                    od.order_id,
                     COALESCE(e_ad.first_name + ' ' + e_ad.last_name, e_o.first_name + ' ' + e_o.last_name, 'N/A') AS employee_name,
                     COALESCE(e_ad.employee_id, e_o.employee_id, 0) AS employee_id,
                     COALESCE(pn_ad.num, pn_o.num, '') AS employee_phone

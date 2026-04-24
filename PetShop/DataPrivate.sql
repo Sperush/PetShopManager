@@ -15,9 +15,9 @@ INSERT INTO CUSTOMER (first_name, middle_name, last_name, address, account_id) V
 -- 4. EMPLOYEE
 INSERT INTO EMPLOYEE (first_name, middle_name, last_name, address, monthly_salary, role_id, account_id) VALUES 
 (N'Phạm', N'Quốc', N'Admin', N'Quận 1, HCM', 20000000, 1, 1),
-(N'Nguyễn', N'Văn', N'Nhân', N'Quận 3, HCM', 9000000, 2, 2),
-(N'Trần', N'Thị', N'Viên', N'Quận 5, HCM', 9000000, 2, 3),
-(N'Lê', N'Thị', N'Thắm', N'Quận 7, HCM', 9000000, 2, 4),
+(N'Nguyễn', N'Văn', N'Nhân', N'Quận 3, HCM', 9000000, 4, 2),
+(N'Trần', N'Thị', N'Viên', N'Quận 5, HCM', 9000000, 4, 3),
+(N'Lê', N'Thị', N'Thắm', N'Quận 7, HCM', 9000000, 5, 4),
 (N'Lý', N'Minh', N'Groom', N'Tân Bình, HCM', 12000000, 3, 5),
 (N'Vũ', N'Văn', N'Cắt', N'Quận 12, HCM', 11000000, 3, 6),
 (N'Bùi', N'Thị', N'Nữ', N'Quận 4, HCM', 8500000, 2, NULL),
@@ -36,22 +36,32 @@ INSERT INTO PET (pet_name, species, breed, color, weight, customer_id) VALUES
 (N'Gấu', N'Chó', N'Golden', N'Vàng đậm', 25.0, 7), (N'Mochi', N'Mèo', N'Ragdoll', N'Xám trắng', 6.2, 8),
 (N'Bin', N'Chó', N'Chihuahua', N'Trắng', 2.1, 9), (N'Susu', N'Mèo', N'Xiêm', N'Đen xám', 4.0, 10);
 -- 9. ORDERS
-INSERT INTO ORDERS (payment_status, payment_method, customer_id, employee_id) VALUES 
-('Completed', N'Tiền mặt', 1, 2), ('Completed', N'Chuyển khoản', 2, 3), ('Pending', N'Tiền mặt', 3, 2),
-('Completed', N'Chuyển khoản', 4, 3), ('Completed', N'Tiền mặt', 5, 2), ('Completed', N'Tiền mặt', 6, 3),
-('Completed', N'Chuyển khoản', 7, 2), ('Completed', N'Tiền mặt', 8, 3), ('Pending', N'Chuyển khoản', 9, 2),
-('Completed', N'Tiền mặt', 10, 3);
+INSERT INTO ORDERS (payment_status, payment_method, payment_time, customer_id, employee_id) VALUES 
+('Completed', N'Tiền mặt', DATEADD(minute, 15, SYSDATETIMEOFFSET()), 1, 2), 
+('Completed', N'Chuyển khoản', DATEADD(minute, 25, SYSDATETIMEOFFSET()), 2, 3), 
+('Pending', N'Tiền mặt', NULL, 3, 2),
+('Completed', N'Chuyển khoản', DATEADD(minute, 35, SYSDATETIMEOFFSET()), 4, 3), 
+('Pending', N'Tiền mặt', NULL, 5, 2), 
+('Pending', N'Tiền mặt', NULL, 6, 3),
+('Pending', N'Chuyển khoản', NULL, 7, 2), 
+('Pending', N'Tiền mặt', NULL, 8, 3), 
+('Pending', N'Chuyển khoản', NULL, 9, 2);
 -- 10. ORDER_DETAIL
 INSERT INTO ORDER_DETAIL (quantity, price_at_purchase, order_id, product_id) VALUES 
 (1, 250000, 1, 1), (2, 18000, 1, 2), (1, 130000, 2, 3), (2, 110000, 3, 4), (5, 35000, 4, 5),
 (2, 15000, 5, 6), (1, 65000, 6, 7), (1, 90000, 7, 8), (4, 25000, 8, 9), (1, 280000, 9, 10);
 -- 11. APPOINTMENT
 INSERT INTO APPOINTMENT (appointment_time, appointment_status, payment_status, pet_id) VALUES 
-(GETDATE(), 'Confirmed', 'Pending', 1), (GETDATE(), 'Completed', 'Completed', 2),
-(GETDATE(), 'Confirmed', 'Pending', 3), (GETDATE(), 'Cancelled', 'Pending', 4),
-(GETDATE(), 'Confirmed', 'Completed', 5), (GETDATE(), 'Confirmed', 'Pending', 6),
-(GETDATE(), 'Confirmed', 'Pending', 7), (GETDATE(), 'Completed', 'Completed', 8),
-(GETDATE(), 'Confirmed', 'Pending', 9), (GETDATE(), 'Confirmed', 'Pending', 10);
+(GETDATE(), 'Confirmed', 'Completed', 1),
+(DATEADD(hour, 1, GETDATE()), 'Completed', 'Completed', 2),
+(DATEADD(hour, 2, GETDATE()), 'Confirmed', 'Completed', 3),
+(DATEADD(hour, 3, GETDATE()), 'Cancelled', 'Pending', 4),
+(DATEADD(hour, 4, GETDATE()), 'Confirmed', 'Pending', 5),
+(DATEADD(hour, 5, GETDATE()), 'Confirmed', 'Pending', 6),
+(DATEADD(hour, 6, GETDATE()), 'Confirmed', 'Pending', 7),
+(DATEADD(hour, 7, GETDATE()), 'Completed', 'Pending', 8),
+(DATEADD(hour, 8, GETDATE()), 'Confirmed', 'Pending', 9),
+(DATEADD(hour, 9, GETDATE()), 'Confirmed', 'Pending', 10);
 -- 12. APPOINTMENT_DETAIL
 INSERT INTO APPOINTMENT_DETAIL (price_at_booking, appointment_id, employee_id, service_id) VALUES 
 (150000, 1, 5, 1), (300000, 2, 6, 2), (70000, 3, 5, 3), (450000, 4, 6, 4), (600000, 5, 5, 5),
@@ -65,10 +75,10 @@ INSERT INTO WORK_SHIFT (start_time, end_time, employee_id) VALUES
 ('2024-04-24 08:00:00', '2024-04-24 17:00:00', 5), ('2024-04-24 08:00:00', '2024-04-24 17:00:00', 6);
 -- 14. COMMISSION_HISTORY
 INSERT INTO COMMISSION_HISTORY (commission_type, applied_percentage, received_amount, order_detail_id) VALUES 
-(N'Bán hàng', 5, 12500, 1), (N'Bán hàng', 5, 1800, 2), (N'Bán hàng', 5, 6500, 3);
+(N'Bán hàng', 5, 14300, 1), (N'Bán hàng', 5, 6500, 3), (N'Bán hàng', 5, 8750, 4);
 INSERT INTO COMMISSION_HISTORY (commission_type, applied_percentage, received_amount, appointment_detail_id) VALUES 
 (N'Dịch vụ', 10, 15000, 1), (N'Dịch vụ', 10, 30000, 2), (N'Dịch vụ', 10, 7000, 3);
 -- 15. STORE_SETTINGS
 INSERT INTO STORE_SETTINGS (setting_key, setting_value) VALUES 
-('store_name', N'Pet Shop Antigravity'), ('qr_secret', 'PETSHOP_2026'), ('bank_id', 'VCB'),
+('store_name', N'Pet Shop'), ('qr_secret', 'PETSHOP_2026'), ('bank_id', 'VCB'),
 ('account_no', '0011001234567'), ('account_name', 'NGUYEN VAN A');

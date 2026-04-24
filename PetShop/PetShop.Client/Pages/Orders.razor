@@ -313,7 +313,13 @@
     private int pageSize = 20;
     private int currentPage = 1;
 
-    private IEnumerable<OrderDisplay> FilteredOrdersList => (orders ?? new()).Where(o => filterPaymentStatus == "All" || o.payment_status == filterPaymentStatus);
+    private int GetStatusWeight(string status) => status == "Completed" ? 2 : 1;
+
+    private IEnumerable<OrderDisplay> FilteredOrdersList => (orders ?? new())
+        .Where(o => filterPaymentStatus == "All" || o.payment_status == filterPaymentStatus)
+        .OrderBy(o => GetStatusWeight(o.payment_status))
+        .ThenByDescending(o => o.created_time);
+
     private IEnumerable<OrderDisplay> PagedOrdersList => FilteredOrdersList.Skip((currentPage - 1) * pageSize).Take(pageSize);
     private int TotalPagesCount => Math.Max(1, (int)Math.Ceiling((double)FilteredOrdersList.Count() / pageSize));
 
