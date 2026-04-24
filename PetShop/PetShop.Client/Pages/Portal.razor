@@ -259,7 +259,7 @@
     <footer class="bg-dark text-white py-5 mt-5">
         <div class="container text-center">
             <h3 class="fw-bold text-primary mb-4">PET SHOP</h3>
-            <p class="text-muted mb-4">Mở cửa: 8:00 - 20:00 (Thứ 2 - Chủ Nhật)</p>
+            <p class="text-muted mb-4">Mở cửa: 8:00 - 17:00 (Thứ 2 - Chủ Nhật)</p>
             <div class="d-flex justify-content-center gap-3 mb-4">
                 <a href="#" class="text-white fs-4"><i class="bi bi-facebook"></i></a>
                 <a href="#" class="text-white fs-4"><i class="bi bi-instagram"></i></a>
@@ -340,9 +340,15 @@
                             </div>
                         </div>
 
-                        <div class="mb-3 p-3 bg-primary bg-opacity-10 rounded-3 d-flex justify-content-between align-items-center">
-                            <span class="fw-bold text-primary">TỔNG CỘNG:</span>
-                            <span class="fw-bold text-primary fs-5">@bookingItems.Sum(i => i.Service.current_price).ToString("#,##0") đ</span>
+                        <div class="mb-3 p-3 bg-primary bg-opacity-10 rounded-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold text-primary">TỔNG CỘNG:</span>
+                                <span class="fw-bold text-primary fs-5">@bookingItems.Sum(i => i.Service.current_price).ToString("#,##0") đ</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small text-muted"><i class="bi bi-hourglass-split me-1"></i> Thời gian ước tính:</span>
+                                <span class="small fw-bold">@bookingItems.Sum(i => i.Service.estimated_duration) phút</span>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -366,6 +372,7 @@
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Giờ Hẹn</label>
                             <input type="time" class="form-control" @bind="bookingTime" />
+                            <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Nhận lịch từ 08:00 đến 17:00</small>
                         </div>
                         <div class="mt-4">
                             <button class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow" @onclick="ConfirmBooking" disabled="@isProcessing">
@@ -772,6 +779,12 @@
         isProcessing = true;
         
         var apptTime = bookingDate.Date.Add(bookingTime.TimeOfDay);
+        if (apptTime.Hour < 8 || (apptTime.Hour >= 17 && apptTime.Minute > 0))
+        {
+            await JS.InvokeVoidAsync("alert", "Vui lòng chọn khung giờ từ 08:00 đến 17:00!");
+            isProcessing = false;
+            return;
+        }
         var req = new AppointmentCreateRequest {
             pet_id = bookingPetId,
             appointment_time = apptTime,
