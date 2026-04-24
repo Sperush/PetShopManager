@@ -89,6 +89,7 @@ namespace PetShop.DTO
         public DateTime? birth_date { get; set; }
         public string gender { get; set; }
         public string note { get; set; }
+        public bool is_active { get; set; } = true;
         public int customer_id { get; set; }
         public string owner_name { get; set; }
         public string owner_phone { get; set; }

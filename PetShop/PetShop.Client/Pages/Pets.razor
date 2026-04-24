@@ -97,9 +97,16 @@
             <input id="pet_birth_date_picker" @bind="currentPet.birth_date" type="text" class="form-control" placeholder="Chọn ngày sinh..." />
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label class="form-label fw-bold small">Ghi chú</label>
             <input @bind="currentPet.note" class="form-control" placeholder="Thông tin thêm..." />
+        </div>
+
+        <div class="col-md-1 d-flex align-items-center mb-1">
+            <div class="form-check form-switch mt-4">
+                <input class="form-check-input" type="checkbox" @bind="currentPet.is_active" id="petActiveSwitch">
+                <label class="form-check-label fw-bold small" for="petActiveSwitch">Hoạt động</label>
+            </div>
         </div>
 
         <div class="col-md-2">
@@ -142,6 +149,10 @@
                 <td class="text-center fw-bold text-secondary">@p.pet_id</td>
                 <td>
                     <div class="fw-bold text-success fs-6">@p.pet_name</div>
+                    @if (!p.is_active)
+                    {
+                        <span class="badge bg-danger">Ngưng hoạt động</span>
+                    }
                 </td>
                 <td>
                     <div class="fw-bold text-primary">@p.species - @p.breed</div>
@@ -305,6 +316,7 @@
                 birth_date = p.birth_date,
                 gender = p.gender,
                 note = p.note,
+                is_active = p.is_active,
                 customer_id = p.customer_id
             };
 
@@ -329,8 +341,19 @@
 
     private async Task DeletePet(PetDisplay p)
     {
-        await Http.DeleteAsync($"{baseUrl}/pets/{p.pet_id}");
-        await LoadData();
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Bạn có chắc chắn muốn xóa vĩnh viễn thú cưng '{p.pet_name}'? Nếu không thể xóa, hãy tắt trạng thái hoạt động.");
+        if (!confirmed) return;
+
+        var response = await Http.DeleteAsync($"{baseUrl}/pets/{p.pet_id}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadData();
+        }
+        else
+        {
+            var errorMsg = await response.Content.ReadAsStringAsync();
+            await JSRuntime.InvokeVoidAsync("alert", string.IsNullOrEmpty(errorMsg) ? "Lỗi khi xóa thú cưng. Vui lòng kiểm tra lại." : errorMsg);
+        }
     }
 }
 

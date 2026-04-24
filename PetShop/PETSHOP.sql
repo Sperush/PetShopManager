@@ -43,6 +43,7 @@ CREATE TABLE PET
   birth_date DATE,
   gender NVARCHAR(20),
   note NVARCHAR(MAX),
+  is_active BIT NOT NULL DEFAULT 1,
   customer_id INT NOT NULL,
   CONSTRAINT FK_Pet_Customer FOREIGN KEY (customer_id) REFERENCES CUSTOMER(customer_id)
 );

@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Microsoft.Data.SqlClient;
 using Dapper;
 using PetShop.DTO;
@@ -27,6 +27,9 @@ namespace PetShop.Services
                 LEFT JOIN ORDER_DETAIL od ON c.order_detail_id = od.order_detail_id
                 LEFT JOIN ORDERS o ON od.order_id = o.order_id
                 LEFT JOIN EMPLOYEE e_o ON o.employee_id = e_o.employee_id
+                LEFT JOIN ROLE r ON r.role_id = e_o.role_id
+                WHERE (r.role_name IS NULL 
+                   OR (LOWER(r.role_name) NOT LIKE N'%quản%' AND LOWER(r.role_name) NOT LIKE N'%manager%'))
                 ORDER BY c.recorded_time DESC";
 
             try {

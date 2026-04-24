@@ -232,7 +232,14 @@ app.MapDelete("/api/appointments/{id}", async (int id, AppointmentService servic
 app.MapGet("/api/pets", async (PetService service) => await service.GetAllPetsAsync());
 app.MapPost("/api/pets", async (PetDisplay pet, PetService service) => { await service.AddPetAsync(pet); return Results.Ok(); });
 app.MapPut("/api/pets/{id}", async (int id, PetDisplay pet, PetService service) => { pet.pet_id = id; await service.UpdatePetAsync(pet); return Results.Ok(); });
-app.MapDelete("/api/pets/{id}", async (int id, PetService service) => { await service.DeletePetAsync(id); return Results.Ok(); });
+app.MapDelete("/api/pets/{id}", async (int id, PetService service) => {
+    try {
+        await service.DeletePetAsync(id);
+        return Results.Ok();
+    } catch (Exception ex) {
+        return Results.BadRequest(ex.Message);
+    }
+});
 app.MapGet("/api/products", async (ProductService service) => await service.GetAllProductsAsync());
 app.MapPost("/api/products", async (ProductDisplay product, ProductService service) => { await service.AddProductAsync(product); return Results.Ok(); });
 app.MapPut("/api/products/{id}", async (int id, ProductDisplay product, ProductService service) => { product.product_id = id; await service.UpdateProductAsync(product); return Results.Ok(); });

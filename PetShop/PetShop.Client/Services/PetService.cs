@@ -63,6 +63,14 @@ namespace PetShop.Services
         {
             using (IDbConnection db = new SqlConnection(_connectionString))
             {
+                string checkSql = "SELECT COUNT(1) FROM APPOINTMENT WHERE pet_id = @id";
+                int count = await db.ExecuteScalarAsync<int>(checkSql, new { id });
+
+                if (count > 0)
+                {
+                    throw new Exception("Không thể xóa thú cưng này vì đã có lịch hẹn trong quá khứ");
+                }
+
                 string sql = "DELETE FROM PET WHERE pet_id = @id";
                 await db.ExecuteAsync(sql, new { id });
             }
