@@ -60,7 +60,7 @@
                 </div>
                 <div class="col-4">
                     <label class="small text-muted">Tìm nhân viên</label>
-                    <input type="text" @bind="searchQuery" @bind:event="oninput" class="form-control" placeholder="ID hoặc SĐT..." />
+                    <input type="text" @bind="searchQuery" @bind:event="oninput" class="form-control" placeholder="ID hoặc Tên nhân viên..." />
                 </div>
             </div>
         </div>
@@ -257,7 +257,6 @@ else
         .Where(x => x.recorded_time.Month == filterMonth && x.recorded_time.Year == filterYear)
         .Where(x => string.IsNullOrEmpty(searchQuery) 
                  || x.employee_id.ToString().Contains(searchQuery) 
-                 || (x.employee_phone != null && x.employee_phone.Contains(searchQuery))
                  || (x.employee_name != null && x.employee_name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)))
         .OrderByDescending(x => x.recorded_time);
 
@@ -285,7 +284,7 @@ else
 
     private async Task SaveGlobalRate(string type, decimal val)
     {
-        await Http.PostAsync($"/api/commissions/rate?type={type}&value={val}", null);
+        await Http.PostAsJsonAsync($"/api/commissions/rate/{type}", val);
         await JSRuntime.InvokeVoidAsync("alert", "Đã cập nhật tỉ lệ hoa hồng chung!");
     }
 

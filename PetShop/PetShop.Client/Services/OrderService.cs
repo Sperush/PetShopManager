@@ -169,13 +169,18 @@ namespace PetShop.Services
 
                         
 
-                        if (req.auto_commission && firstDetailId > 0)
+                        bool isManager = await db.ExecuteScalarAsync<bool>("SELECT 1 FROM EMPLOYEE WHERE employee_id = @id AND role_id = 1", new { id = req.employee_id }, trans);
+
+                        if (req.payment_status == "Completed" && firstDetailId > 0 && !isManager)
                         {
-                            decimal commAmount = totalAmount * (req.commission_rate / 100);
+                            string rateStr = await db.QueryFirstOrDefaultAsync<string>("SELECT setting_value FROM STORE_SETTINGS WHERE setting_key = 'sales_comm'", null, trans);
+                            decimal commRate = decimal.TryParse(rateStr, out var r) ? r : 5.0m;
+                            decimal commAmount = totalAmount * (commRate / 100);
+
                             string sqlComm = @"
                                 INSERT INTO COMMISSION_HISTORY (commission_type, applied_percentage, received_amount, recorded_time, order_detail_id)
                                 VALUES (N'Bán hàng', @rate, @amount, SYSDATETIMEOFFSET(), @detailId)";
-                            await db.ExecuteAsync(sqlComm, new { rate = req.commission_rate, amount = commAmount, detailId = firstDetailId }, trans);
+                            await db.ExecuteAsync(sqlComm, new { rate = commRate, amount = commAmount, detailId = firstDetailId }, trans);
                         }
 
                         trans.Commit();
@@ -204,10 +209,13 @@ namespace PetShop.Services
 
                     decimal totalAmount = await db.ExecuteScalarAsync<decimal>("SELECT SUM(quantity * price_at_purchase) FROM ORDER_DETAIL WHERE order_id = @id", new { id }, trans);
                     int firstDetailId = await db.ExecuteScalarAsync<int>("SELECT TOP 1 order_detail_id FROM ORDER_DETAIL WHERE order_id = @id", new { id }, trans);
-                    decimal commRate = 5.0m;
+                    string rateStr = await db.QueryFirstOrDefaultAsync<string>("SELECT setting_value FROM STORE_SETTINGS WHERE setting_key = 'sales_comm'", null, trans);
+                    decimal commRate = decimal.TryParse(rateStr, out var r) ? r : 5.0m;
 
                     bool exists = await db.ExecuteScalarAsync<bool>("SELECT 1 FROM COMMISSION_HISTORY WHERE order_detail_id = @did", new { did = firstDetailId }, trans);
-                    if (!exists && firstDetailId > 0)
+                    bool isManager = await db.ExecuteScalarAsync<bool>("SELECT 1 FROM ORDERS o JOIN EMPLOYEE e ON o.employee_id = e.employee_id WHERE o.order_id = @id AND e.role_id = 1", new { id }, trans);
+                    
+                    if (!exists && firstDetailId > 0 && !isManager)
                     {
                         decimal commAmount = totalAmount * (commRate / 100);
                         await db.ExecuteAsync(@"INSERT INTO COMMISSION_HISTORY (commission_type, applied_percentage, received_amount, recorded_time, order_detail_id)

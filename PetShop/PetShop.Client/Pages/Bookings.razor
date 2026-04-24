@@ -19,6 +19,9 @@
             <button class="nav-link @(filterStatus == "All" ? "active" : "")" @onclick='() => filterStatus = "All"'>Tất cả</button>
         </li>
         <li class="nav-item">
+            <button class="nav-link @(filterStatus == "Unpaid" ? "active" : "")" @onclick='() => filterStatus = "Unpaid"'>Chờ thanh toán</button>
+        </li>
+        <li class="nav-item">
             <button class="nav-link @(filterStatus == "Confirmed" ? "active" : "")" @onclick='() => filterStatus = "Confirmed"'>Đã đặt lịch</button>
         </li>
         <li class="nav-item">
@@ -373,6 +376,10 @@
                                             <span>- @discount.ToString("#,##0") đ</span>
                                         </div>
                                     }
+                                    <div class="d-flex justify-content-between mb-2 text-primary">
+                                        <span class="small"><i class="bi bi-plus-circle me-1"></i> Tăng tích điểm (+1%):</span>
+                                        <span class="fw-bold">@(((int)(total * 0.01m)).ToString("#,##0")) điểm</span>
+                                    </div>
                                     <hr class="my-2">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="fw-bold fs-5 text-dark">KHÁCH PHẢI TRẢ:</span>
@@ -387,11 +394,12 @@
                     <button class="btn btn-secondary" @onclick="CloseModal">@(isReadOnly ? "Đóng" : "Hủy")</button>
                     @if (!isReadOnly)
                     {
-                        @if (editingApptId > 0)
-                        {
-                            <button class="btn btn-outline-primary px-4" @onclick="SaveOnlyAppt">LƯU THAY ĐỔI</button>
-                        }
-                        <button class="btn btn-primary px-5 fw-bold" @onclick="OpenPaymentSelector">@(editingApptId == 0 ? "TIẾP TỤC THANH TOÁN" : "THANH TOÁN LẠI")</button>
+                        <button class="btn btn-outline-primary px-4" @onclick="SaveOnlyAppt">
+                            <i class="bi bi-save me-1"></i> @(editingApptId == 0 ? "LƯU LỊCH HẸN" : "LƯU THAY ĐỔI")
+                        </button>
+                        <button class="btn btn-primary px-5 fw-bold" @onclick="OpenPaymentSelector">
+                            <i class="bi bi-wallet2 me-1"></i> @(editingApptId == 0 ? "TIẾP TỤC THANH TOÁN" : "THANH TOÁN LẠI")
+                        </button>
                     }
                 </div>
             </div>
@@ -509,9 +517,10 @@
     private int currentPage = 1;
 
     private IEnumerable<AppointmentDisplay> FilteredApptsList => (appointments ?? new())
-        .Where(a => filterStatus == "All" || a.appointment_status == filterStatus)
-        .OrderBy(a => GetStatusWeight(a.appointment_status))
-        .ThenByDescending(a => a.appointment_time);
+        .Where(a => filterStatus == "All" || 
+                   (filterStatus == "Unpaid" && a.payment_status != "Completed") || 
+                   a.appointment_status == filterStatus)
+        .OrderByDescending(a => a.appointment_time);
 
     private IEnumerable<AppointmentDisplay> PagedApptsList => FilteredApptsList.Skip((currentPage - 1) * pageSize).Take(pageSize);
     private int TotalApptsPagesCount => Math.Max(1, (int)Math.Ceiling((double)FilteredApptsList.Count() / pageSize));
@@ -708,6 +717,11 @@
             errorMessage = "Điểm sử dụng không được vượt quá tổng giá trị dịch vụ!";
             return;
         }
+        if (selectedCustomer != null && (apptModel.used_reward_points ?? 0) > selectedCustomer.reward_points)
+        {
+            errorMessage = "Khách hàng không đủ điểm tích lũy!";
+            return;
+        }
 
 
         apptModel.payment_status = "Completed";
@@ -766,12 +780,29 @@
         errorMessage = "";
         if (apptModel.Details.Count == 0 || apptModel.Details.Any(d => d.service_id == 0)) { errorMessage = "Vui lòng chọn đủ dịch vụ!"; return; }
 
-        var res = await Http.PutAsJsonAsync($"/api/appointments/{editingApptId}", apptModel);
+        decimal totalAmount = apptModel.Details.Sum(d => d.price_at_booking);
+        if ((apptModel.used_reward_points ?? 0) > totalAmount)
+        {
+            errorMessage = "Điểm sử dụng không được vượt quá tổng giá trị dịch vụ!";
+            return;
+        }
+        if (selectedCustomer != null && (apptModel.used_reward_points ?? 0) > selectedCustomer.reward_points)
+        {
+            errorMessage = "Khách hàng không đủ điểm tích lũy!";
+            return;
+        }
+
+        if (editingApptId == 0) apptModel.payment_status = "Pending";
+
+        HttpResponseMessage res;
+        if (editingApptId == 0) res = await Http.PostAsJsonAsync("/api/appointments", apptModel);
+        else res = await Http.PutAsJsonAsync($"/api/appointments/{editingApptId}", apptModel);
+
         if (res.IsSuccessStatusCode)
         {
             isShowingModal = false;
             await LoadAppointments();
-            await JS.InvokeVoidAsync("alert", "Đã cập nhật lịch hẹn thành công!");
+            await JS.InvokeVoidAsync("alert", editingApptId == 0 ? "Đã lưu lịch hẹn thành công!" : "Đã cập nhật lịch hẹn thành công!");
         }
         else
         {
@@ -782,7 +813,7 @@
             }
             else
             {
-                errorMessage = "Lỗi khi cập nhật: " + msg;
+                errorMessage = "Lỗi khi lưu: " + msg;
             }
         }
     }

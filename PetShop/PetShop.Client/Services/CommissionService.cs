@@ -18,21 +18,23 @@ namespace PetShop.Services
                     c.*,
                     ad.appointment_id,
                     od.order_id,
-                    COALESCE(e_ad.first_name + ' ' + e_ad.last_name, e_o.first_name + ' ' + e_o.last_name, 'N/A') AS employee_name,
-                    COALESCE(e_ad.employee_id, e_o.employee_id, 0) AS employee_id,
-                    COALESCE(pn_ad.num, pn_o.num, '') AS employee_phone
+                    ISNULL(e_ad.first_name + ' ' + e_ad.last_name, ISNULL(e_o.first_name + ' ' + e_o.last_name, 'N/A')) AS employee_name,
+                    ISNULL(e_ad.employee_id, ISNULL(e_o.employee_id, 0)) AS employee_id,
+                    (SELECT TOP 1 num FROM PHONE_NUM WHERE employee_id = ISNULL(e_ad.employee_id, e_o.employee_id)) AS employee_phone
                 FROM COMMISSION_HISTORY c
                 LEFT JOIN APPOINTMENT_DETAIL ad ON c.appointment_detail_id = ad.appointment_detail_id
                 LEFT JOIN EMPLOYEE e_ad ON ad.employee_id = e_ad.employee_id
-                LEFT JOIN PHONE_NUM pn_ad ON e_ad.employee_id = pn_ad.employee_id
-                
                 LEFT JOIN ORDER_DETAIL od ON c.order_detail_id = od.order_detail_id
                 LEFT JOIN ORDERS o ON od.order_id = o.order_id
                 LEFT JOIN EMPLOYEE e_o ON o.employee_id = e_o.employee_id
-                LEFT JOIN PHONE_NUM pn_o ON e_o.employee_id = pn_o.employee_id
                 ORDER BY c.recorded_time DESC";
 
-            return (await db.QueryAsync<CommissionDisplay>(sql)).ToList();
+            try {
+                var result = await db.QueryAsync<CommissionDisplay>(sql);
+                return result.ToList();
+            } catch {
+                return new List<CommissionDisplay>();
+            }
         }
 
         public async Task<decimal> GetGlobalRateAsync(string key)

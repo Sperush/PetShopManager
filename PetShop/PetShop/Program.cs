@@ -2,6 +2,7 @@ using PetShop.Components;
 using PetShop.Services;
 using Microsoft.AspNetCore.Components;
 using PetShop.DTO;
+using Dapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -97,6 +98,19 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(PetShop.Client._Imports).Assembly);
+
+app.MapGet("/api/admin/reseed", async (IConfiguration config) => {
+    using var db = new Microsoft.Data.SqlClient.SqlConnection(config.GetConnectionString("DefaultConnection"));
+    await db.OpenAsync();
+    try {
+        await db.ExecuteAsync("DBCC CHECKIDENT ('ORDERS', RESEED)");
+        await db.ExecuteAsync("DBCC CHECKIDENT ('ORDER_DETAIL', RESEED)");
+        await db.ExecuteAsync("DBCC CHECKIDENT ('APPOINTMENT', RESEED)");
+        await db.ExecuteAsync("DBCC CHECKIDENT ('APPOINTMENT_DETAIL', RESEED)");
+        await db.ExecuteAsync("DBCC CHECKIDENT ('COMMISSION_HISTORY', RESEED)");
+        return Results.Ok("Đã đồng bộ lại mã ID tự động cho tất cả các bảng thành công!");
+    } catch (Exception ex) { return Results.BadRequest(ex.Message); }
+});
 
 app.MapPost("/api/roles", async (RoleDisplay role, EmployeeService service) => {
     role.role_id = await service.AddRoleAsync(role);

@@ -134,7 +134,7 @@ namespace PetShop.Services
                     SELECT 
                         a.appointment_id, 
                         a.appointment_time as StartTime,
-                        (SELECT ISNULL(SUM(s.estimated_duration), 60) 
+                        (SELECT ISNULL(NULLIF(SUM(s.estimated_duration), 0), 30) 
                          FROM APPOINTMENT_DETAIL ad 
                          JOIN SERVICE s ON ad.service_id = s.service_id 
                          WHERE ad.appointment_id = a.appointment_id) as Duration,
@@ -206,6 +206,29 @@ namespace PetShop.Services
                             await db.ExecuteAsync(sqlDetail, new { appointment_id = apptId, d.service_id, d.employee_id, d.price_at_booking }, trans);
                         }
 
+                        if (req.payment_status == "Completed")
+                        {
+                            var details = await db.QueryAsync(@"
+                                SELECT ad.appointment_detail_id, ad.price_at_booking, ad.employee_id 
+                                FROM APPOINTMENT_DETAIL ad
+                                JOIN EMPLOYEE e ON ad.employee_id = e.employee_id
+                                WHERE ad.appointment_id = @id AND e.role_id != 1", new { id = apptId }, trans);
+                            
+                            string rateStr = await db.QueryFirstOrDefaultAsync<string>("SELECT setting_value FROM STORE_SETTINGS WHERE setting_key = 'service_comm'", null, trans);
+                            decimal commRate = decimal.TryParse(rateStr, out var r) ? r : 10.0m;
+
+                            foreach (var d in details)
+                            {
+                                if (d.employee_id > 0)
+                                {
+                                    decimal commAmount = (decimal)d.price_at_booking * (commRate / 100);
+                                    await db.ExecuteAsync(@"INSERT INTO COMMISSION_HISTORY (commission_type, applied_percentage, received_amount, recorded_time, appointment_detail_id)
+                                                            VALUES (N'Dịch vụ', @rate, @amount, SYSDATETIMEOFFSET(), @did)", 
+                                                            new { rate = commRate, amount = commAmount, did = d.appointment_detail_id }, trans);
+                                }
+                            }
+                        }
+
                         trans.Commit();
                         return apptId;
                     }
@@ -236,8 +259,13 @@ namespace PetShop.Services
                 if (status == "Completed")
                 {
 
-                    var details = await db.QueryAsync("SELECT appointment_detail_id, price_at_booking, employee_id FROM APPOINTMENT_DETAIL WHERE appointment_id = @id", new { id }, trans);
-                    decimal commRate = 10.0m;
+                    var details = await db.QueryAsync(@"
+                        SELECT ad.appointment_detail_id, ad.price_at_booking, ad.employee_id 
+                        FROM APPOINTMENT_DETAIL ad
+                        JOIN EMPLOYEE e ON ad.employee_id = e.employee_id
+                        WHERE ad.appointment_id = @id AND e.role_id != 1", new { id }, trans);
+                    string rateStr = await db.QueryFirstOrDefaultAsync<string>("SELECT setting_value FROM STORE_SETTINGS WHERE setting_key = 'service_comm'", null, trans);
+                    decimal commRate = decimal.TryParse(rateStr, out var r) ? r : 10.0m;
 
                     foreach (var d in details)
                     {
