@@ -4,7 +4,7 @@ INSERT INTO ACCOUNT (username, password) VALUES
 ('groomer1', '123456'), ('groomer2', '123456'), ('customer1', '123456'), 
 ('customer2', '123456'), ('customer3', '123456'), ('customer4', '123456');
 -- 2. ROLE
-INSERT INTO ROLE (role_name) VALUES (N'Manager'), (N'Staff'), (N'Groomer');
+INSERT INTO ROLE (role_name) VALUES (N'Quản lý'), (N'Nhân viên CSKH'), (N'Nhân viên chăm sóc pet'), (N'Nhân viên bán hàng'), (N'Lễ tân');
 -- 3. CUSTOMER
 INSERT INTO CUSTOMER (first_name, middle_name, last_name, address, account_id) VALUES 
 (N'Nguyễn', N'Thị', N'Lan', N'Quận 1, HCM', 7), (N'Trần', N'Minh', N'Tuấn', N'Quận 3, HCM', 8),
